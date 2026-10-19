@@ -1,0 +1,124 @@
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[project]
+name = "turncoat-sdn"
+version = "0.1.0.dev0"
+description = "A reproducible benchmark for trust-aware SDN load balancers under delayed-onset (turncoat) attacks."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [
+  { name = "K R Jeevan Raj" },
+  { name = "Aravind Kumar M" },
+  { name = "Arjun Krishnakumar" },
+  { name = "Ashwin Kumar RM" },
+  { name = "Bhuvanesh S" },
+]
+keywords = [
+  "sdn",
+  "zero-trust",
+  "load-balancing",
+  "edge-computing",
+  "iot-security",
+  "benchmark",
+  "trust-model",
+]
+classifiers = [
+  "Development Status :: 2 - Pre-Alpha",
+  "Intended Audience :: Science/Research",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Topic :: Scientific/Engineering",
+  "Topic :: System :: Networking",
+  "Typing :: Typed",
+]
+# The core must stay importable without os-ken or Mininet.
+# Anything that needs them lives under backends/ and is installed separately.
+dependencies = [
+  "numpy>=1.26,<3",
+  "scipy>=1.11,<2",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0,<9",
+  "pytest-cov>=5.0",
+  "ruff>=0.6",
+]
+
+[project.scripts]
+turncoat = "turncoat_sdn.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/bhuvanesh-sudo/turncoat-sdn"
+Repository = "https://github.com/bhuvanesh-sudo/turncoat-sdn"
+Issues = "https://github.com/bhuvanesh-sudo/turncoat-sdn/issues"
+Changelog = "https://github.com/bhuvanesh-sudo/turncoat-sdn/blob/main/CHANGELOG.md"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/turncoat_sdn"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "src/turncoat_sdn",
+  "tests",
+  "README.md",
+  "CHANGELOG.md",
+  "LICENSE",
+]
+
+# ---------------------------------------------------------------- pytest
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+addopts = "-ra --strict-markers --strict-config --import-mode=importlib"
+markers = [
+  "slow: long-running test (many seeds or long simulated time)",
+  "live: needs the optional Mininet backend; never runs in core CI",
+]
+filterwarnings = ["error"]
+
+# ---------------------------------------------------------------- coverage
+
+[tool.coverage.run]
+source = ["turncoat_sdn"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+skip_empty = true
+
+# ---------------------------------------------------------------- ruff
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+  "E",   # pycodestyle errors
+  "W",   # pycodestyle warnings
+  "F",   # pyflakes
+  "I",   # isort
+  "B",   # flake8-bugbear
+  "UP",  # pyupgrade
+  "TID", # tidy imports (banned imports below)
+]
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"os_ken".msg = "The core package must not import os-ken. Put SDN code under backends/."
+"ryu".msg = "The core package must not import Ryu. Put SDN code under backends/."
+"mininet".msg = "The core package must not import Mininet. Put it under backends/mininet/."
+
+[tool.ruff.lint.per-file-ignores]
+"backends/**" = ["TID251"]
