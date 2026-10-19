@@ -15,3 +15,7 @@ fits (Added, Changed, Fixed, Removed).
   `strategies`, `trust`, `events`, `scoring` and `stats` subpackages, a
   `turncoat` console entry point, CI on a plain runner, PR and issue
   templates, `README.md` and `CONTRIBUTING.md` (jv).
+- Seeded simulator in `turncoat_sdn.sim`, ported from the final-year
+  project's `evaluation/baseline.py` with routing, trust and the latency tell
+  as hooks; golden-file tests against the original numbers,
+  `docs/simulator.md` and `INSTALL.md` (bv).
