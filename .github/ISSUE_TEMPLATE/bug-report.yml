@@ -1,0 +1,39 @@
+name: Bug report
+description: Something does not work as documented.
+title: "bug: <short description>"
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: How to reproduce
+      description: The exact commands, including seed, scenario and strategy if relevant.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Output or traceback
+      render: text
+  - type: input
+    id: version
+    attributes:
+      label: turncoat-sdn version
+      description: Output of `turncoat --version`, or the commit hash.
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Python version and OS
+      placeholder: e.g. Python 3.13, Ubuntu 24.04 on WSL2
+    validations:
+      required: true

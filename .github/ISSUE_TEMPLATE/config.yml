@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Contribution guide
+    url: https://github.com/bhuvanesh-sudo/turncoat-sdn/blob/main/CONTRIBUTING.md
+    about: Branch names, commit style, review rota and the definition of done.

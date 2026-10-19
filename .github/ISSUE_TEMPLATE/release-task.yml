@@ -1,0 +1,65 @@
+name: Release task
+description: One task from the release plan (one issue per task, one branch per issue).
+title: "[v0.x] <initials>: <short task>"
+labels: ["task"]
+body:
+  - type: dropdown
+    id: release
+    attributes:
+      label: Release
+      options:
+        - v0.1
+        - v0.2
+        - v0.3
+        - v0.4
+        - v1.0
+    validations:
+      required: true
+  - type: dropdown
+    id: owner
+    attributes:
+      label: Owner
+      options:
+        - bv (Simulator)
+        - arj (Event format and live recording)
+        - ash (Trust model and attacks)
+        - arv (Strategies, scoring and statistics)
+        - jv (Repo, CLI, tests and release)
+    validations:
+      required: true
+  - type: textarea
+    id: task
+    attributes:
+      label: Task
+      description: What needs to be built or moved, and from which files of the final-year project.
+    validations:
+      required: true
+  - type: textarea
+    id: done-when
+    attributes:
+      label: Done when
+      description: The observable condition that proves the task is finished.
+      placeholder: e.g. A seeded run reproduces the original numbers for one scenario.
+    validations:
+      required: true
+  - type: input
+    id: docs
+    attributes:
+      label: Documentation
+      description: The doc page(s) this task writes or updates.
+      placeholder: e.g. docs/simulator.md
+    validations:
+      required: true
+  - type: input
+    id: starts-after
+    attributes:
+      label: Starts after
+      description: Tasks or people this depends on, or "Nothing".
+      placeholder: e.g. jv's scaffold (#1)
+    validations:
+      required: true
+  - type: input
+    id: branch
+    attributes:
+      label: Branch
+      placeholder: v0.x/<initials>-<short-task>

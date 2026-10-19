@@ -218,3 +218,35 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# ---------------------------------------------------------------- turncoat-sdn
+
+# Windows download metadata (alternate data streams copied onto other filesystems)
+*:Zone.Identifier
+*Zone.Identifier
+
+# OS and editor clutter
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+
+# Archives: never commit bundles of the source tree
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.7z
+
+# Generated run outputs: regenerate them from code, don't commit them.
+# Small hand-written fixtures under tests/ are still allowed.
+runs/
+results/
+out/
+*.jsonl
+!tests/**/*.jsonl
+figures/
+*.pdf
+*.docx
+*.pptx
