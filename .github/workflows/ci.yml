@@ -1,0 +1,85 @@
+name: CI
+
+# Runs lint and the test suite on every push to main and every pull request.
+# The core package needs no os-ken, Mininet or sudo, so a stock GitHub-hosted
+# runner is enough. The "no SDN stack" job proves that on every change.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install ruff
+        run: python -m pip install "ruff>=0.6"
+
+      - name: Lint
+        run: ruff check --output-format=github .
+
+      - name: Check formatting
+        run: ruff format --check .
+
+  test:
+    name: Test (Python ${{ matrix.python-version }}, ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
+        include:
+          # Most of the team develops on Windows; catch path and
+          # line-ending problems early.
+          - os: windows-latest
+            python-version: "3.13"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install package
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+
+      - name: Confirm the SDN stack is absent
+        shell: python
+        run: |
+          import importlib.util, sys
+          present = [m for m in ("os_ken", "ryu", "mininet") if importlib.util.find_spec(m)]
+          if present:
+              sys.exit(f"CI runner must not have the SDN stack installed: {present}")
+          print("OK: os_ken, ryu and mininet are not installed")
+
+      - name: Import the core package
+        run: python -c "import turncoat_sdn; print(turncoat_sdn.__version__)"
+
+      - name: Run tests
+        run: python -m pytest --cov --cov-report=term-missing
+
+      - name: Smoke-test the CLI
+        run: turncoat --version
