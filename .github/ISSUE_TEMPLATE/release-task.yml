@@ -1,5 +1,5 @@
 name: Release task
-description: One task from the release plan (one issue per task, one branch per issue).
+description: 'One task from the release plan. One issue per task; its commits go on the release branch and say "Refs #<issue number>".'
 title: "[v0.x] <initials>: <short task>"
 labels: ["task"]
 body:
@@ -61,5 +61,6 @@ body:
   - type: input
     id: branch
     attributes:
-      label: Branch
-      placeholder: v0.x/<initials>-<short-task>
+      label: Release branch
+      description: The branch this task's commits go on. There are no per-task branches.
+      placeholder: release-v0.x
