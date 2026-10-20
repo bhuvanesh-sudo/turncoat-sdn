@@ -137,11 +137,11 @@ Coimbatore, under the guidance of Dr. Radhika N.
 
 | Handle | Name | Track |
 |---|---|---|
-| bv | Bhuvanesh S | Simulator |
+| bv | Bhuvanesh S | Simulator and release |
 | arj | Arjun Krishnakumar | Event format and live recording |
 | ash | Ashwin Kumar RM | Trust model and attacks |
 | arv | Aravind Kumar M | Strategies, scoring and statistics |
-| jv | K R Jeevan Raj | Repo, CLI, tests and release |
+| jv | K R Jeevan Raj | Repo, CLI and tests |
 
 ## License
 
