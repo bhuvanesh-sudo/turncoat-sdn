@@ -10,6 +10,7 @@ sudo is needed. Tests that need the live backend must be marked
 | `test_cli.py` | The `turncoat` entry point: `--version`, help and usage errors. |
 | `sim/test_golden.py` | The simulator reproduces the final-year project's numbers exactly, from `sim/golden_fyp_baseline.json`. |
 | `sim/test_simulator.py` | Seed pairing, attacker behaviour, queueing, the hooks, and CSV output. |
+| `trust/test_latency_tell.py` | The Sybil latency tell's scenarios from the final-year project, and that plugging it into the simulator reproduces the original `time_to_isolate_s`. |
 
 ## Porting tests from the final-year project
 
