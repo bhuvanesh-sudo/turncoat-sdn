@@ -19,3 +19,7 @@ fits (Added, Changed, Fixed, Removed).
   project's `evaluation/baseline.py` with routing, trust and the latency tell
   as hooks; golden-file tests against the original numbers,
   `docs/simulator.md` and `INSTALL.md` (bv).
+- Latency tell (`fleet_latency_baseline`, `evaluate_latency_tell`) moved out of
+  the project's os-ken-bound `controller/flow_monitor.py` into
+  `turncoat_sdn.trust.latency_tell`, so no core module imports os-ken; its
+  tests and `docs/architecture.md` (arj).
