@@ -9,3 +9,13 @@ availability_report.py, controller/attack_classifier.py.
 
 This module must not import os-ken, Ryu or Mininet.
 """
+
+from turncoat_sdn.scoring.availability import score_availability
+from turncoat_sdn.scoring.interval import score_intervals
+from turncoat_sdn.scoring.nfr import score_nfr
+
+__all__ = [
+    "score_availability",
+    "score_intervals",
+    "score_nfr",
+]
