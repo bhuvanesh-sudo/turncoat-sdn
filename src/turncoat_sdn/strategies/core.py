@@ -1,4 +1,3 @@
-
 """Core server models and load-balancing strategies."""
 
 import random
@@ -89,9 +88,7 @@ class ZeroTrustSDNStrategy:
 
     def select(self, servers: list[Server]) -> Server:
         candidates = [
-            server
-            for server in eligible_servers(servers)
-            if server.trust_score >= self.min_trust
+            server for server in eligible_servers(servers) if server.trust_score >= self.min_trust
         ]
 
         if not candidates:

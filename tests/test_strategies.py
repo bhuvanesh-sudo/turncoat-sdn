@@ -21,9 +21,7 @@ def servers():
 
 def test_round_robin(servers):
     strategy = RoundRobinStrategy()
-    assert [strategy.select(servers).server_id for _ in range(3)] == [
-        "edge-a", "edge-b", "edge-c"
-    ]
+    assert [strategy.select(servers).server_id for _ in range(3)] == ["edge-a", "edge-b", "edge-c"]
 
 
 def test_least_connections(servers):
@@ -52,9 +50,7 @@ def test_random_is_reproducible():
     servers = [Server(f"edge-{i}") for i in range(5)]
     a = RandomStrategy(seed=42)
     b = RandomStrategy(seed=42)
-    assert [a.select(servers) for _ in range(20)] == [
-        b.select(servers) for _ in range(20)
-    ]
+    assert [a.select(servers) for _ in range(20)] == [b.select(servers) for _ in range(20)]
 
 
 def test_unhealthy_servers_are_skipped():
