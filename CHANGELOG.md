@@ -28,3 +28,8 @@ fits (Added, Changed, Fixed, Removed).
   `SimTrustModel` to plug the calculator into the simulator; the 0.44
   liar-floor tests, golden `zt_sdn` and `no_trust` numbers from the final-year
   project, `docs/concepts.md` and `docs/trust-model.md` (ash).
+
+- Load-balancing strategies in `turncoat_sdn.strategies`
+  (`RandomStrategy`, `RoundRobinStrategy`, `LeastConnectionsStrategy`,
+  `NoTrustStrategy` and `ZeroTrustSDNStrategy`), with server validation,
+  trust-threshold filtering, automated tests and `docs/strategies.md` (arv).
