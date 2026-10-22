@@ -8,6 +8,13 @@ sudo is needed. Tests that need the live backend must be marked
 |---|---|
 | `test_package.py` | The package imports, every planned subpackage exists, and **no core module pulls in os-ken, Ryu or Mininet**. It walks every module, so it also covers modules added later. |
 | `test_cli.py` | The `turncoat` entry point: `--version`, help and usage errors. |
+| `sim/test_golden.py` | The simulator reproduces the final-year project's numbers exactly, from `sim/golden_fyp_baseline.json`. |
+| `sim/test_simulator.py` | Seed pairing, attacker behaviour, queueing, the hooks, and CSV output. |
+| `trust/test_latency_tell.py` | The Sybil latency tell's scenarios from the final-year project, and that plugging it into the simulator reproduces the original `time_to_isolate_s`. |
+| `trust/test_calculator.py` | The trust calculator (T-01 to T-07) and `SimTrustModel`, the adapter that plugs it into the simulator. |
+| `trust/test_edge_selector.py` | EdgeScore, quarantine, power-of-two-choices, epsilon-exploration and the graduated-response bands. |
+| `trust/test_liar_floor.py` | **The 0.44 liar floor**: a liar that serves well never drops below the isolation threshold, and only the anomaly gate catches it. |
+| `trust/test_zt_sdn.py` | `no_trust` and `zt_sdn` reproduce the final-year project's numbers from `trust/golden_fyp_edge_score.json`, and detection tests E-08 to E-11. |
 
 ## Porting tests from the final-year project
 

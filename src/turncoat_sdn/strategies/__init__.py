@@ -1,10 +1,21 @@
-"""Load-balancing strategies behind one ``Strategy`` interface:
-random, round_robin, least_conn, no_trust and zt_sdn.
+"""Load-balancing strategies for Turncoat-SDN."""
 
-Owner: arv (Strategies, scoring and statistics track).
-Lands in: v0.1.
-Ported from the final-year project:
-evaluation/baseline.py (strategy half).
+from turncoat_sdn.strategies.core import (
+    LeastConnectionsStrategy,
+    NoTrustStrategy,
+    RandomStrategy,
+    RoundRobinStrategy,
+    Server,
+    Strategy,
+    ZeroTrustSDNStrategy,
+)
 
-This module must not import os-ken, Ryu or Mininet.
-"""
+__all__ = [
+    "Server",
+    "Strategy",
+    "RandomStrategy",
+    "RoundRobinStrategy",
+    "LeastConnectionsStrategy",
+    "NoTrustStrategy",
+    "ZeroTrustSDNStrategy",
+]

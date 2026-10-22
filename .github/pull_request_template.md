@@ -1,18 +1,27 @@
 <!--
-Title format: <type>(<scope>): <summary>   e.g. feat(scoring): add detection latency
-Branch format: v0.x/<initials>-<short-task>
-Open as a draft on day one; mark Ready for review when done.
+One pull request per release: release-v0.x into main, opened by jv as a draft
+at kickoff so CI runs on every push. Mark Ready for review after the
+show-and-tell.
+Title format: release: v0.x <release goal>   e.g. release: v0.1 the simulator runs on its own
 -->
 
-Closes #
+## Release goal
 
-## What changed
+<!-- The goal and demo from the release plan, and whether the show-and-tell passed. -->
 
-<!-- What does this PR do, and why? Mention anything ported from the final-year project and where it came from. -->
+## Tasks in this release
+
+<!-- One line per task issue. Tick it when its rota reviewer has reviewed the commits. -->
+
+- [ ] #  bv:
+- [ ] #  arj:
+- [ ] #  ash:
+- [ ] #  arv:
+- [ ] #  jv:
 
 ## How it was tested
 
-<!-- Commands you ran and what they showed. For ported code, say how you checked the numbers still match. -->
+<!-- Commands run on a clean install, and what they showed. For ported code, say how the numbers were checked against the final-year project. -->
 
 ```
 pytest
@@ -20,23 +29,18 @@ ruff check .
 ruff format --check .
 ```
 
-## Docs updated
-
-<!-- Which doc pages changed in this PR (README.md, CONTRIBUTING.md, docs/*.md)? -->
-
--
-
 ## Definition of done
 
-- [ ] The issue's **Done when** condition is met
+- [ ] Every task's **Done when** condition is met
+- [ ] Every task's commits reviewed by its rota reviewer
 - [ ] Tests added or updated, and CI green
-- [ ] The doc page for this task written or updated in this PR
-- [ ] One line added to `CHANGELOG.md` under "Unreleased"
+- [ ] Each task's doc page written or updated
+- [ ] One line per task in `CHANGELOG.md` under "Unreleased"
 - [ ] Any new command or option shown in `docs/cli.md`
 - [ ] No core module imports `os_ken`, `ryu` or `mininet`
 
-## Reviewer
+## Approval
 
-<!-- From the rota: bv→arj, arj→ash, ash→arv, arv→jv, jv→bv. The reviewer merges. -->
+<!-- Needs green CI and an approval from a member other than the author. Merge with Rebase and merge or Create a merge commit, never Squash. -->
 
 @

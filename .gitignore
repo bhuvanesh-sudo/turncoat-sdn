@@ -225,6 +225,10 @@ __marimo__/
 *:Zone.Identifier
 *Zone.Identifier
 
+# Local checkout of the final-year project, kept beside the code for porting.
+# It has its own history; never commit it into this one.
+Zero-Trust-Enabled-SDN-Architecture/
+
 # OS and editor clutter
 .DS_Store
 Thumbs.db

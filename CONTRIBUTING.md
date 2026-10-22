@@ -24,8 +24,8 @@ ruff check .           # lint
 ruff format --check .  # formatting
 ```
 
-CI runs exactly these three commands, so if they pass locally your pull
-request should pass too.
+CI runs exactly these three commands, so if they pass locally your push
+should pass too.
 
 ## 2. Pick up a task
 
@@ -33,21 +33,37 @@ request should pass too.
   milestone (`v0.1`, `v0.2`, ...). Open one with the **Release task** template
   if it does not exist yet.
 - Assign yourself before you start, and check the issue's **Starts after**
-  field. Don't start a task whose dependency hasn't merged.
+  field. Don't start a task whose dependency hasn't landed on the release
+  branch yet.
 
 ## 3. Branches
 
-One branch per task, named `v0.x/<initials>-<short-task>`:
+There is one branch per release, and everyone works on it directly:
 
 ```
-v0.1/jv-repo-scaffold
-v0.2/arj-event-schema
-v0.3/bv-grayhole-attack
+release-v0.1
+release-v0.2
+release-v0.3
 ```
 
-Branch from an up-to-date `main`, and never commit to `main` directly. `main`
-is protected: changes reach it only through a reviewed pull request with green
-CI.
+At each kickoff, jv creates the release branch from an up-to-date `main` and
+opens a **draft** pull request from it into `main`, so CI runs on every push.
+There are no per-task branches.
+
+Never commit to `main` directly. `main` is protected: changes reach it only
+through the release pull request, reviewed and with green CI.
+
+Because five people push to the same branch, follow these rules every time:
+
+- **Pull before you start and before you push:**
+  `git pull --rebase origin release-v0.x`.
+- **Run the checks before you push:** `pytest`, `ruff check .` and
+  `ruff format --check .`. Never push a red branch, because it blocks everyone.
+- **Never force-push** the release branch, and never rewrite commits that are
+  already pushed.
+- **Expect conflicts in shared files** (`CHANGELOG.md`, `tests/README.md`,
+  `docs/README.md`). Keep your edits to them small, and resolve conflicts by
+  keeping both sides.
 
 ## 4. Commits
 
@@ -73,17 +89,19 @@ Scopes match the package folders: `sim`, `attacks`, `strategies`, `trust`,
 Aim for several small commits per task rather than one large one. A reviewer
 should be able to read the history and follow how the change was built.
 
-## 5. Pull requests
+## 5. Reviews and merging
 
-1. Open a **draft** pull request on the first day of the task, so teammates
-   can see progress.
-2. Fill in the template: what changed, how it was tested, which docs were
-   updated.
-3. When it's ready, mark it **Ready for review** and request your reviewer
-   from the rota below.
-4. The **reviewer** merges, not the author. Use *Squash and merge* only if the
-   individual commits are noise; otherwise use *Rebase and merge* to keep the
-   history.
+1. When your task is done, push it to the release branch and ask your reviewer
+   from the rota below to review your commits. They comment on the commits on
+   GitHub, and you fix anything they raise in new commits.
+2. Mention the task's issue in your commit messages (`Refs #12`) so the
+   reviewer can find every commit that belongs to it.
+3. At the end of the release, jv marks the release pull request **Ready for
+   review**. It needs green CI and an approval from another member before it
+   merges.
+4. Merge the release pull request with *Rebase and merge* or *Create a merge
+   commit*, never *Squash and merge*, so every contributor's history survives
+   on `main`.
 
 ### Review rota
 
@@ -108,9 +126,9 @@ should be able to read the history and follow how the change was built.
 
 A task is done only when all of these are true:
 
-- [ ] Code merged to `main` through a reviewed pull request
-- [ ] Tests added or updated, and CI green
-- [ ] The doc page for the task written or updated in the same pull request
+- [ ] Commits pushed to the release branch and reviewed by your rota reviewer
+- [ ] Tests added or updated, and CI green on the release pull request
+- [ ] The doc page for the task written or updated in the same push
 - [ ] One line added to `CHANGELOG.md` under "Unreleased"
 - [ ] Any new command or option shown in `docs/cli.md`
 
@@ -132,13 +150,14 @@ A task is done only when all of these are true:
 
 - **Kickoff** at the start of each release (30 minutes): confirm tasks,
   dependencies and open questions.
-- **Weekly check-in** (15 minutes): what merged, what's next, what's blocking.
+- **Weekly check-in** (15 minutes): what landed, what's next, what's blocking.
 - **Show-and-tell** at the end of each release: one person demos the release
   end to end from a clean install, then jv tags it.
 
 ## 9. Releases
 
-jv tags each release from `main` once its show-and-tell passes:
+jv merges the release pull request and tags `main` once the show-and-tell
+passes:
 
 ```bash
 git tag -a v0.1.0 -m "v0.1: the simulator runs on its own"
