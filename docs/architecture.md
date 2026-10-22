@@ -75,7 +75,7 @@ python -c "import turncoat_sdn"
 |---|---|---|---|---|
 | `sim/` | Seeded discrete-event simulator, scenarios, run metrics, hook protocols | bv | v0.1 | `evaluation/baseline.py` |
 | `trust/` | Latency tell | arj | v0.1 | `controller/flow_monitor.py` (two functions only) |
-| `trust/` | Trust calculator, edge selector, thresholds, anomaly gate | ash | planned, v0.1 | `trust_engine/trust_calculator.py`, `controller/edge_selector.py`, `contracts/thresholds.py` |
+| `trust/` | Trust calculator, edge selector, thresholds, anomaly gate | ash | v0.1 | `trust_engine/trust_calculator.py`, `contracts/trust_update.py`, `controller/edge_selector.py`, `contracts/thresholds.py` |
 | `strategies/` | `random`, `round_robin`, `least_conn`, `no_trust`, `zt_sdn` behind one interface | arv | planned, v0.1 | `evaluation/baseline.py` |
 | `events/` | Event schema, JSONL writer and reader, validator | arj | planned, v0.2 | `controller/event_bus.py`, `evaluation/nfr_report.load_events` |
 | `scoring/` | Attack, NFR, interval and availability scorers | ash, arv | planned, v0.2 | `evaluation/*_report.py`, `controller/attack_classifier.py` |
@@ -126,6 +126,9 @@ upward, and nothing in the core imports a backend.
 |---|---|---|---|
 | `fleet_latency_baseline` | `controller/flow_monitor.py` | `trust/latency_tell.py` | A pure median over probe RTTs, stuck in a module that imports `os_ken.lib.hub` |
 | `evaluate_latency_tell` | `controller/flow_monitor.py` | `trust/latency_tell.py` | The load-independent Sybil tell, a pure function, same problem |
+| `TrustCalculator`, `TrustUpdate` | `trust_engine/trust_calculator.py`, `contracts/trust_update.py` | `trust/calculator.py` | The trust formula `zt_sdn` routes on; `SimTrustModel` beside it fills the simulator's trust hook |
+| `select_edge_node` and friends | `controller/edge_selector.py` | `trust/edge_selector.py` | EdgeScore and quarantine, shared by the `no_trust` and `zt_sdn` strategies |
+| Isolation threshold, anomaly gate, bands | `contracts/thresholds.py` | `trust/thresholds.py` | The two rails every quarantine decision and scorer depends on |
 
 Both functions moved without logic changes: same arguments, same defaults,
 same leaky-bucket persistence. The result tuple is now `LatencyTellResult`

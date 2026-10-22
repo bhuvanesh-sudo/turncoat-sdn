@@ -23,3 +23,8 @@ fits (Added, Changed, Fixed, Removed).
   the project's os-ken-bound `controller/flow_monitor.py` into
   `turncoat_sdn.trust.latency_tell`, so no core module imports os-ken; its
   tests and `docs/architecture.md` (arj).
+- Trust calculator, EdgeScore selector and thresholds (isolation line, anomaly
+  gate, rate-limit bands) ported into `turncoat_sdn.trust`, with
+  `SimTrustModel` to plug the calculator into the simulator; the 0.44
+  liar-floor tests, golden `zt_sdn` and `no_trust` numbers from the final-year
+  project, `docs/concepts.md` and `docs/trust-model.md` (ash).
