@@ -33,3 +33,8 @@ fits (Added, Changed, Fixed, Removed).
   (`RandomStrategy`, `RoundRobinStrategy`, `LeastConnectionsStrategy`,
   `NoTrustStrategy` and `ZeroTrustSDNStrategy`), with server validation,
   trust-threshold filtering, automated tests and `docs/strategies.md` (arv).
+- Attack scoring in `turncoat_sdn.scoring`: the attack classifier and attack
+  report moved from the final-year project, printing a confusion matrix,
+  per-class metrics and detection latency for a recording; tests including a
+  scored simulator run, and the attack scoring section of `docs/scoring.md`
+  (ash).

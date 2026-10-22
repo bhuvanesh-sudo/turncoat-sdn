@@ -15,6 +15,8 @@ sudo is needed. Tests that need the live backend must be marked
 | `trust/test_edge_selector.py` | EdgeScore, quarantine, power-of-two-choices, epsilon-exploration and the graduated-response bands. |
 | `trust/test_liar_floor.py` | **The 0.44 liar floor**: a liar that serves well never drops below the isolation threshold, and only the anomaly gate catches it. |
 | `trust/test_zt_sdn.py` | `no_trust` and `zt_sdn` reproduce the final-year project's numbers from `trust/golden_fyp_edge_score.json`, and detection tests E-08 to E-11. |
+| `scoring/test_attack_classifier.py` | The attack classifier's rules: sybil vs on-off, blackhole vs grayhole, abstention, client labels. |
+| `scoring/test_attack_report.py` | Ground truth, cycle reconstruction, the confusion matrix and detection latency, the CLI, and a scored simulator run (recorded by `scoring/conftest.py`). |
 
 ## Porting tests from the final-year project
 
