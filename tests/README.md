@@ -25,6 +25,8 @@ sudo is needed. Tests that need the live backend must be marked
 | `events/test_jsonl.py` | The JSONL writer and reader: header first, line-buffered, no interleaved lines under concurrent writers, and a truncated tail line skipped on read. |
 | `events/test_validate.py` | **The event schema**: `sample_run.jsonl` passes, `broken_run.jsonl` fails with one clear message per problem, every rule in `docs/event-format.md`, and the doc lists every type and field in `events/schema.py`. |
 | `scoring/test_attack_report.py` | Ground truth, cycle reconstruction, the confusion matrix and detection latency, the CLI, and a scored simulator run (the simulator's own recording, via `scoring/conftest.py`). |
+| `attacks/test_profiles.py` | The attack interface on its own: honest before `start_s`, hostile after, settings and validation, and what `Sybil` and `Blackhole` do once they turn. |
+| `attacks/test_onset.py` | Attacks in the simulator: passing them explicitly changes no number, onset is recorded in `topology`, turncoats are honest before it, malicious traffic and detection count from it, random attacks stay paired, and the late-blackhole result. |
 
 ## Porting tests from the final-year project
 

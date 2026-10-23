@@ -57,3 +57,11 @@ fits (Added, Changed, Fixed, Removed).
   stable `--json`. The CLI's routers reproduce both final-year golden files,
   rebuilt service totals equal the simulator's counts, and a golden-file test
   pins the scores of eight fixed-seed runs; `docs/cli.md` (jv).
+- Attack profile interface in `turncoat_sdn.attacks`: `ServerAttack` keeps a
+  server honest until its `start_s` onset, and the simulator's Sybil and
+  blackhole moved out of its event loop onto it as `Sybil` and `Blackhole`
+  with every golden number unchanged. `SimConfig.attack_start_s` delays a
+  scenario's attackers, `simulate(attacks=...)` places your own, each
+  attacker gets its own seeded random stream, and the `topology` event records
+  every onset; malicious traffic and isolation now count from the onset.
+  Tests, and `docs/attacks.md` with how to write an attack (ash).
