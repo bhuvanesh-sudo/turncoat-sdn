@@ -3,7 +3,7 @@
 Owner: bv (Simulator track).
 Lands in: v0.1.
 Ported from the final-year project:
-evaluation/baseline.py (simulator half); event writer in v0.2.
+evaluation/baseline.py (simulator half); recording to events.jsonl in v0.2.
 
 The simulator owns the network, the clients and the attackers. Routing, trust
 and the latency tell are hooks passed in by the caller (see
@@ -27,10 +27,12 @@ This module must not import os-ken, Ryu or Mininet.
 from __future__ import annotations
 
 from turncoat_sdn.sim.config import SCENARIOS, SimConfig, malicious_roles
-from turncoat_sdn.sim.engine import UNTRUSTED_DEFAULT, run_paired, simulate
+from turncoat_sdn.sim.engine import UNTRUSTED_DEFAULT, node_id, run_paired, simulate
 from turncoat_sdn.sim.hooks import (
     LatencyTell,
     Outcome,
+    Recorder,
+    RecorderFactory,
     Router,
     RouterFactory,
     TellResult,
@@ -46,6 +48,8 @@ __all__ = [
     "UNTRUSTED_DEFAULT",
     "LatencyTell",
     "Outcome",
+    "Recorder",
+    "RecorderFactory",
     "Router",
     "RouterFactory",
     "RunResult",
@@ -56,6 +60,7 @@ __all__ = [
     "as_rows",
     "gini",
     "malicious_roles",
+    "node_id",
     "run_paired",
     "simulate",
     "write_csv",

@@ -77,8 +77,65 @@ small = replace(SimConfig(), n_nodes=4, sim_s=60.0)
 run = simulate(round_robin, "both", seed=7, config=small)
 ```
 
-From v0.2 the `turncoat run` command wraps all of this, using the strategies
-in `turncoat_sdn.strategies`.
+The `turncoat run` command wraps all of this for the five strategies (see
+`docs/cli.md`).
+
+### Recording a run
+
+Pass an open `EventWriter` as `recorder` and the run is written to an
+`events.jsonl` file in the shared format (see
+[event-format.md](event-format.md)). The writer stamps the `header` line with
+the seed, strategy and scenario you give it; the simulator writes everything
+after that.
+
+```python
+from turncoat_sdn.events import EventWriter
+from turncoat_sdn.trust import SimTrustModel, latency_tell
+
+with EventWriter(
+    "run.jsonl", backend="sim", seed=1000, strategy="round_robin", scenario="both"
+) as rec:
+    run = simulate(
+        round_robin,
+        "both",
+        seed=1000,
+        trust=SimTrustModel,
+        latency_tell=latency_tell,
+        recorder=rec,
+    )
+```
+
+The file validates and scores like any other recording:
+
+```bash
+python -m turncoat_sdn.events.validate run.jsonl
+# run.jsonl: valid, schema 1.0, 15547 lines
+python -m turncoat_sdn.scoring.attack_report run.jsonl
+# ... Detection latency: mean 3.0s, max 3.0s
+```
+
+Recording draws no random numbers, so a recorded run returns exactly the
+metrics an unrecorded one does, and the golden numbers still hold.
+
+For paired runs, give `run_paired` a `recorders` factory. It is called with
+the strategy label, scenario and seed of each run, and whatever it returns is
+closed after that run, so you get one finished file per run:
+
+```python
+def recorders(strategy, scenario, seed):
+    return EventWriter(
+        f"runs/{strategy}-{scenario}-{seed}.jsonl",
+        backend="sim",
+        seed=seed,
+        strategy=strategy,
+        scenario=scenario,
+    )
+
+
+results = run_paired({"round_robin": round_robin}, seeds=range(1000, 1030), recorders=recorders)
+```
+
+Return `None` from the factory to skip recording a run.
 
 ### Scenarios
 
@@ -95,13 +152,14 @@ one. In v0.3 these fixed scenarios become attack profiles with an onset time
 
 ### Hooks
 
-`simulate` takes three hooks. Only the router is required.
+`simulate` takes four hooks. Only the router is required.
 
 | Hook | Shape | Without it |
 |---|---|---|
 | `router` | `factory(n, rng)` returning an object with `choose(trust, claimed_cpu, rtt_ms, anomaly) -> int or None` | required |
 | `trust` | `factory()` returning an object with `initial_score` and `update(outcome) -> float` | every node keeps trust 1.0 |
 | `latency_tell` | an object or module with `fleet_latency_baseline(rtts)` and `evaluate_latency_tell(claimed_cpu, measured_rtt_ms, fleet_baseline_ms, strikes)` | the Sybil is never flagged |
+| `recorder` | an object with `write(event_type, ts, **fields)`, such as `EventWriter` | nothing is recorded |
 
 The exact signatures are the protocols in `turncoat_sdn/sim/hooks.py`. The
 trust model receives an `Outcome` whose fields match the project's
@@ -147,6 +205,35 @@ The controller only learns a node's load at each poll. Between polls every
 arrival is routed on the same stale snapshot, which is why load-aware
 strategies herd. That is a real result, not a bug: see
 [Known limits](#known-limits).
+
+### What a recording holds
+
+The simulator writes each event at the simulated moment it happens, so the
+file is in time order by construction. Node `i` is recorded as `srv{i+1}`,
+the same id the trust model receives.
+
+| Event | Written when | Fields |
+|---|---|---|
+| `topology` | once, at `ts` 0 | every server with its ground-truth `attack` (`none`, `sybil` or `drop`) and, for attackers, `attack_start_s` 0.0; plus the run's `SimConfig` as `config` |
+| `route` | a task is routed | `task` (1 for the first arrival), `chosen` |
+| `route_denied` | the router returns `None` | `reason` (`all candidates quarantined`), `task` |
+| `report` | a task completes or times out | `task`, `node`, `status` (`success` or `timeout`), `latency_ms` |
+| `anomaly` | a poll in which a tell fired on a node | `node`, `signals` (`latency_tell`: RTT over the fleet baseline; `packet_drop`: recent timeout rate), `anomaly` (the smoothed level) |
+| `quarantine`, `recovered` | a poll at which a node crosses the exclusion rails (trust below the isolation threshold, or anomaly at the gate) | `node`, `trust`, `anomaly` |
+| `node_status` | the end of every poll | `nodes`: each node's `trust`, `claimed_cpu`, `rtt_ms`, `anomaly`, `busy` and `queued` |
+
+A task that gave up in a backlog is reported as a `timeout` with
+`latency_ms` equal to the client timeout and `gave_up_in_backlog: true`. It is
+stamped when a worker reaches it, which is when the simulator finds out, not
+when the client gave up. Tasks still running when the run ends get no report.
+
+The signal names are the attack classifier's, and `node_status` closes each
+poll cycle, which is what the attack scorer needs to rebuild clean cycles.
+`tests/sim/test_recording.py` checks that every scenario's recording
+validates, that recording leaves the metrics untouched, and that the file
+agrees with the `RunResult`: routes plus denials equal offered tasks, success
+reports equal completions, timeout reports equal failures, and the last
+attacker's first `quarantine` is `time_to_isolate_s`.
 
 ### Why seeds are paired
 
@@ -202,8 +289,16 @@ once `turncoat_sdn.trust` and `turncoat_sdn.strategies` land.
 - **Fixed attackers.** v0.1 has the four built-in scenarios only, with
   attackers hostile from the start. Delayed onset and the full attack catalogue
   arrive in v0.3.
-- **No recording yet.** Runs return metrics, not an event stream. Writing
-  `events.jsonl` arrives in v0.2.
+- **Recordings are large.** A default 120 s run is about 15,500 lines and
+  1.5 MB, almost all of it `route` and `report`. 600 paired runs is close to
+  a gigabyte, so record the runs you want to score, not every run by default.
+- **Quarantine is the controller's view, not the router's.** `quarantine`
+  marks when the exclusion rails would hold a node out, the same test
+  `time_to_isolate_s` uses. A trust-blind strategy such as round-robin keeps
+  routing to a quarantined node, and its recording shows that.
+- **No `classification` events.** The simulator has no classifier of its own.
+  The attack scorer replays one over the `anomaly` and `node_status` events,
+  so it does not need them.
 - **The optimiser strategy was not ported.** The project's `zt_sdn_rf`
   (EdgeScore weights chosen by a UCB1 bandit) is outside the benchmark's five
   strategies.

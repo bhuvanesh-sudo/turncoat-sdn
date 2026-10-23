@@ -38,3 +38,22 @@ def test_module_is_runnable():
         check=True,
     )
     assert result.stdout.strip() == f"{PROG} {__version__}"
+
+
+def test_help_lists_the_v02_commands(capsys):
+    assert main([]) == 0
+    out = capsys.readouterr().out
+    for command in ("run", "validate", "score"):
+        assert command in out
+
+
+def test_module_runs_a_command(tmp_path):
+    path = tmp_path / "run.jsonl"
+    result = subprocess.run(
+        [sys.executable, "-m", "turncoat_sdn.cli", "run", "--duration", "5", "-o", str(path), "-q"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert result.stdout == ""
+    assert path.exists()

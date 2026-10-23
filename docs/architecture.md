@@ -77,11 +77,12 @@ python -c "import turncoat_sdn"
 | `trust/` | Latency tell | arj | v0.1 | `controller/flow_monitor.py` (two functions only) |
 | `trust/` | Trust calculator, edge selector, thresholds, anomaly gate | ash | v0.1 | `trust_engine/trust_calculator.py`, `contracts/trust_update.py`, `controller/edge_selector.py`, `contracts/thresholds.py` |
 | `strategies/` | `random`, `round_robin`, `least_conn`, `no_trust`, `zt_sdn` behind one interface | arv | planned, v0.1 | `evaluation/baseline.py` |
-| `events/` | Event schema, JSONL writer and reader, validator | arj | planned, v0.2 | `controller/event_bus.py`, `evaluation/nfr_report.load_events` |
-| `scoring/` | Attack, NFR, interval and availability scorers | ash, arv | planned, v0.2 | `evaluation/*_report.py`, `controller/attack_classifier.py` |
+| `events/` | Event schema 1.0, JSONL writer and reader, validator (see `event-format.md`) | arj | v0.2 | `controller/event_bus.py` (JSONL part), `evaluation/nfr_report.load_events` |
+| `scoring/` | Attack classifier and attack scorer | ash | v0.2 | `controller/attack_classifier.py`, `evaluation/attack_report.py` |
+| `scoring/` | NFR, interval and availability scorers | arv | planned, v0.2 | `evaluation/nfr_report.py`, `interval_report.py`, `availability_report.py` |
 | `attacks/` | One profile per attack, each with a `start_s` onset | ash and everyone | planned, v0.3 | `simulation/attack_simulator.py` |
 | `stats/` | Paired Wilcoxon with Holm, bootstrap CIs, replicate aggregator | arv, bv, arj | planned, v0.4 | `evaluation/stats.py` |
-| `cli.py` | The `turncoat` command | jv | entry point now, commands from v0.2 | — |
+| `cli/` | The `turncoat` command (`run`, `validate`, `score`) and the five strategies as simulator routers | jv | v0.2 | `evaluation/baseline.py` (routers) |
 | `backends/mininet/` | Optional live testbed (outside the core package) | bv | planned, v1.0 | `simulation/node_agent.py`, `iot_client.py`, `topology.py` |
 
 ### Dependency rules
@@ -90,7 +91,7 @@ Arrows point from a package to the packages it may import. Nothing imports
 upward, and nothing in the core imports a backend.
 
 ```
-                 cli.py
+                 cli/
                    |
      +-------------+--------------+
      v             v              v

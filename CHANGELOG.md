@@ -33,3 +33,27 @@ fits (Added, Changed, Fixed, Removed).
   (`RandomStrategy`, `RoundRobinStrategy`, `LeastConnectionsStrategy`,
   `NoTrustStrategy` and `ZeroTrustSDNStrategy`), with server validation,
   trust-threshold filtering, automated tests and `docs/strategies.md` (arv).
+- Attack scoring in `turncoat_sdn.scoring`: the attack classifier and attack
+  report moved from the final-year project, printing a confusion matrix,
+  per-class metrics and detection latency for a recording; tests including a
+  scored simulator run, and the attack scoring section of `docs/scoring.md`
+  (ash).
+- Event schema 1.0 for `events.jsonl` in `turncoat_sdn.events`: a
+  `schema_version` header line, the JSONL writer and reader ported from the
+  project's `event_bus.py` and `load_events`, a validator with line-numbered
+  messages (`python -m turncoat_sdn.events.validate`), and
+  `docs/event-format.md` (arj).
+- The simulator records runs to `events.jsonl`: a `recorder` hook on
+  `simulate` and a `recorders` factory on `run_paired` that take arj's
+  `EventWriter`, writing the topology with ground truth, every route and
+  outcome, anomaly signals, quarantines and a per-poll `node_status`; every
+  scenario's recording validates and recording leaves the metrics unchanged.
+  The attack scoring tests now score this recording. Recording section in
+  `docs/simulator.md` (bv).
+- `turncoat run`, `validate` and `score` commands: `run` records one seeded
+  run of any of the five strategies, `validate` checks recordings against the
+  schema, and `score` reports service cost, attacker detection and isolation
+  latency, and traffic still routed to flagged attackers, as a summary or
+  stable `--json`. The CLI's routers reproduce both final-year golden files,
+  rebuilt service totals equal the simulator's counts, and a golden-file test
+  pins the scores of eight fixed-seed runs; `docs/cli.md` (jv).
