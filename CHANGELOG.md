@@ -50,3 +50,10 @@ fits (Added, Changed, Fixed, Removed).
   scenario's recording validates and recording leaves the metrics unchanged.
   The attack scoring tests now score this recording. Recording section in
   `docs/simulator.md` (bv).
+- `turncoat run`, `validate` and `score` commands: `run` records one seeded
+  run of any of the five strategies, `validate` checks recordings against the
+  schema, and `score` reports service cost, attacker detection and isolation
+  latency, and traffic still routed to flagged attackers, as a summary or
+  stable `--json`. The CLI's routers reproduce both final-year golden files,
+  rebuilt service totals equal the simulator's counts, and a golden-file test
+  pins the scores of eight fixed-seed runs; `docs/cli.md` (jv).
