@@ -10,6 +10,7 @@ sudo is needed. Tests that need the live backend must be marked
 | `test_cli.py` | The `turncoat` entry point: `--version`, help and usage errors. |
 | `sim/test_golden.py` | The simulator reproduces the final-year project's numbers exactly, from `sim/golden_fyp_baseline.json`. |
 | `sim/test_simulator.py` | Seed pairing, attacker behaviour, queueing, the hooks, and CSV output. |
+| `sim/test_recording.py` | Every scenario's `events.jsonl` recording validates, recording leaves the metrics unchanged, and the file agrees with the run: routes, outcomes, quarantines and one `node_status` per poll. |
 | `trust/test_latency_tell.py` | The Sybil latency tell's scenarios from the final-year project, and that plugging it into the simulator reproduces the original `time_to_isolate_s`. |
 | `trust/test_calculator.py` | The trust calculator (T-01 to T-07) and `SimTrustModel`, the adapter that plugs it into the simulator. |
 | `trust/test_edge_selector.py` | EdgeScore, quarantine, power-of-two-choices, epsilon-exploration and the graduated-response bands. |
@@ -18,7 +19,7 @@ sudo is needed. Tests that need the live backend must be marked
 | `scoring/test_attack_classifier.py` | The attack classifier's rules: sybil vs on-off, blackhole vs grayhole, abstention, client labels. |
 | `events/test_jsonl.py` | The JSONL writer and reader: header first, line-buffered, no interleaved lines under concurrent writers, and a truncated tail line skipped on read. |
 | `events/test_validate.py` | **The event schema**: `sample_run.jsonl` passes, `broken_run.jsonl` fails with one clear message per problem, every rule in `docs/event-format.md`, and the doc lists every type and field in `events/schema.py`. |
-| `scoring/test_attack_report.py` | Ground truth, cycle reconstruction, the confusion matrix and detection latency, the CLI, and a scored simulator run (recorded by `scoring/conftest.py`). |
+| `scoring/test_attack_report.py` | Ground truth, cycle reconstruction, the confusion matrix and detection latency, the CLI, and a scored simulator run (the simulator's own recording, via `scoring/conftest.py`). |
 
 ## Porting tests from the final-year project
 
