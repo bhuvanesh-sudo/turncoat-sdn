@@ -23,4 +23,8 @@ sections for their own work, and the owner reviews those additions.
 | `../CONTRIBUTING.md` | jv | v0.1 | How do I propose a change? |
 | `cli.md` | jv | v0.2 to v0.4 | What commands and options exist? |
 
-Pages appear here as their release lands.
+Pages appear here as their release lands. As of v0.2 these exist:
+`simulator.md`, `event-format.md`, `scoring.md`, `architecture.md`,
+`concepts.md`, `trust-model.md`, `strategies.md`, `../INSTALL.md`,
+`../README.md` and `../CONTRIBUTING.md`. `cli.md` arrives with the
+`turncoat run`, `score` and `validate` commands later in v0.2.
