@@ -38,3 +38,8 @@ fits (Added, Changed, Fixed, Removed).
   per-class metrics and detection latency for a recording; tests including a
   scored simulator run, and the attack scoring section of `docs/scoring.md`
   (ash).
+- Event schema 1.0 for `events.jsonl` in `turncoat_sdn.events`: a
+  `schema_version` header line, the JSONL writer and reader ported from the
+  project's `event_bus.py` and `load_events`, a validator with line-numbered
+  messages (`python -m turncoat_sdn.events.validate`), and
+  `docs/event-format.md` (arj).
