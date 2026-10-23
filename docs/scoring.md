@@ -160,7 +160,8 @@ python -m turncoat_sdn.scoring.attack_report run.jsonl
 python -m turncoat_sdn.scoring.attack_report run.jsonl --csv subjects.csv
 ```
 
-From v0.2, `turncoat score` (jv) will run it for you.
+`turncoat score --detail run.jsonl` prints the same report after its own
+summary (see `docs/cli.md`).
 
 Here is the report for a simulated `both` run (8 servers, seed 1000, a Sybil on
 `srv8` and a dropper on `srv7`). It is produced by

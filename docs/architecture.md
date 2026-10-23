@@ -82,7 +82,7 @@ python -c "import turncoat_sdn"
 | `scoring/` | NFR, interval and availability scorers | arv | planned, v0.2 | `evaluation/nfr_report.py`, `interval_report.py`, `availability_report.py` |
 | `attacks/` | One profile per attack, each with a `start_s` onset | ash and everyone | planned, v0.3 | `simulation/attack_simulator.py` |
 | `stats/` | Paired Wilcoxon with Holm, bootstrap CIs, replicate aggregator | arv, bv, arj | planned, v0.4 | `evaluation/stats.py` |
-| `cli.py` | The `turncoat` command | jv | entry point now, commands from v0.2 | — |
+| `cli/` | The `turncoat` command (`run`, `validate`, `score`) and the five strategies as simulator routers | jv | v0.2 | `evaluation/baseline.py` (routers) |
 | `backends/mininet/` | Optional live testbed (outside the core package) | bv | planned, v1.0 | `simulation/node_agent.py`, `iot_client.py`, `topology.py` |
 
 ### Dependency rules
@@ -91,7 +91,7 @@ Arrows point from a package to the packages it may import. Nothing imports
 upward, and nothing in the core imports a backend.
 
 ```
-                 cli.py
+                 cli/
                    |
      +-------------+--------------+
      v             v              v

@@ -8,6 +8,11 @@ sudo is needed. Tests that need the live backend must be marked
 |---|---|
 | `test_package.py` | The package imports, every planned subpackage exists, and **no core module pulls in os-ken, Ryu or Mininet**. It walks every module, so it also covers modules added later. |
 | `test_cli.py` | The `turncoat` entry point: `--version`, help and usage errors. |
+| `cli/test_routers.py` | The CLI's five strategies reproduce both final-year golden files (`sim/golden_fyp_baseline.json`, `trust/golden_fyp_edge_score.json`). |
+| `cli/test_run.py` | `turncoat run`: valid recordings, recording leaves the numbers unchanged, same seed gives the same file byte for byte, options and errors. |
+| `cli/test_validate.py` | `turncoat validate`: verdicts and exit codes for valid, broken, missing and mixed files. |
+| `cli/test_score.py` | `turncoat score`: service totals rebuilt from events equal the simulator's counts for every strategy and scenario, detection and cut-off, `--json`, `--detail` and errors. |
+| `cli/test_golden.py` | **Fixed seed, fixed scores**: `run` then `score --json` for eight cases must equal `cli/golden_scores.json`. |
 | `sim/test_golden.py` | The simulator reproduces the final-year project's numbers exactly, from `sim/golden_fyp_baseline.json`. |
 | `sim/test_simulator.py` | Seed pairing, attacker behaviour, queueing, the hooks, and CSV output. |
 | `sim/test_recording.py` | Every scenario's `events.jsonl` recording validates, recording leaves the metrics unchanged, and the file agrees with the run: routes, outcomes, quarantines and one `node_status` per poll. |

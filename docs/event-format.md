@@ -95,7 +95,7 @@ broken_run.jsonl: 5 problems
 
 Both files are in `tests/events/`. From Python, `validate_file(path)` and
 `validate_events(events)` return a `Report` with `.ok`, `.problems` and
-`.format(name)`. `turncoat validate` will wrap the same call (see
+`.format(name)`. `turncoat validate` wraps the same call (see
 `docs/cli.md`).
 
 ## How it works inside

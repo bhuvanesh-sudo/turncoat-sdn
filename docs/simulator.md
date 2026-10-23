@@ -77,8 +77,8 @@ small = replace(SimConfig(), n_nodes=4, sim_s=60.0)
 run = simulate(round_robin, "both", seed=7, config=small)
 ```
 
-From v0.2 the `turncoat run` command wraps all of this, using the strategies
-in `turncoat_sdn.strategies`.
+The `turncoat run` command wraps all of this for the five strategies (see
+`docs/cli.md`).
 
 ### Recording a run
 
