@@ -43,3 +43,10 @@ fits (Added, Changed, Fixed, Removed).
   project's `event_bus.py` and `load_events`, a validator with line-numbered
   messages (`python -m turncoat_sdn.events.validate`), and
   `docs/event-format.md` (arj).
+- The simulator records runs to `events.jsonl`: a `recorder` hook on
+  `simulate` and a `recorders` factory on `run_paired` that take arj's
+  `EventWriter`, writing the topology with ground truth, every route and
+  outcome, anomaly signals, quarantines and a per-poll `node_status`; every
+  scenario's recording validates and recording leaves the metrics unchanged.
+  The attack scoring tests now score this recording. Recording section in
+  `docs/simulator.md` (bv).
