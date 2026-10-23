@@ -1,0 +1,12 @@
+{"type": "header", "schema_version": "1.0", "backend": "sim", "seed": 7, "strategy": "zt_sdn", "scenario": "on-off"}
+{"type": "topology", "ts": 0.0, "graph": {"nodes": [{"id": "srv1", "kind": "server", "attack": "none"}, {"id": "srv2", "kind": "server", "attack": "none"}, {"id": "srv3", "kind": "server", "attack": "on_off", "attack_start_s": 120.0}, {"id": "srv4", "kind": "server", "attack": "none"}, {"id": "iot1", "kind": "iot", "ip": "10.0.0.1", "attack": "none"}, {"id": "iot2", "kind": "iot", "ip": "10.0.0.2", "attack": "none"}], "links": []}}
+{"type": "route", "ts": 120.6, "task": 5810, "chosen": "srv1", "client_ip": "10.0.0.1", "edge_score": 0.81, "decision_ms": 0.9}
+{"type": "report", "ts": 120.9, "task": 5810, "node": "srv1", "status": "success", "latency_ms": 31.2, "device": "iot1"}
+{"type": "route", "ts": 121.4, "task": 5812, "chosen": "srv3", "client_ip": "10.0.0.2", "edge_score": 0.79, "decision_ms": 1.1}
+{"type": "node_status", "ts": 122.0, "nodes": {}}
+{"type": "report", "ts": 123.4, "task": 5812, "node": "srv3", "status": "timeout", "latency_ms": 2000.0, "device": "iot2"}
+{"type": "anomaly", "ts": 124.0, "node": "srv3", "signals": {"packet_drop": 0.4}}
+{"type": "node_status", "ts": 124.0, "nodes": {}}
+{"type": "classification", "ts": 135.9, "subject": "srv3", "kind": "node", "attack_type": "on_off", "confidence": 0.8}
+{"type": "quarantine", "ts": 136.0, "node": "srv3", "trust": 0.29, "anomaly": 0.12}
+{"type": "route_denied", "ts": 137.2, "reason": "subject not authenticated", "client_ip": "10.0.0.2"}
