@@ -147,8 +147,11 @@ Return `None` from the factory to skip recording a run.
 | `both` | the Sybil on the last node, the dropper on the one before | Both at once. |
 
 Attackers sit at the end of the index range so a round-robin never starts on
-one. In v0.3 these fixed scenarios become attack profiles with an onset time
-`start_s`.
+one. From v0.3 each attacker is an attack profile from `turncoat_sdn.attacks`
+(`Sybil`, `Blackhole`) with an onset: `SimConfig(attack_start_s=30.0)` keeps a
+scenario's attackers honest for the first 30 s, and `simulate(...,
+attacks={7: Sybil(start_s=30.0)})` places your own. See
+[Attacks](attacks.md).
 
 ### Hooks
 
@@ -214,7 +217,7 @@ the same id the trust model receives.
 
 | Event | Written when | Fields |
 |---|---|---|
-| `topology` | once, at `ts` 0 | every server with its ground-truth `attack` (`none`, `sybil` or `drop`) and, for attackers, `attack_start_s` 0.0; plus the run's `SimConfig` as `config` |
+| `topology` | once, at `ts` 0 | every server with its ground-truth `attack` (`none`, `sybil`, `drop`, or a custom attack's name) and, for attackers, its onset `attack_start_s`; plus the run's `SimConfig` as `config` |
 | `route` | a task is routed | `task` (1 for the first arrival), `chosen` |
 | `route_denied` | the router returns `None` | `reason` (`all candidates quarantined`), `task` |
 | `report` | a task completes or times out | `task`, `node`, `status` (`success` or `timeout`), `latency_ms` |
@@ -286,9 +289,9 @@ once `turncoat_sdn.trust` and `turncoat_sdn.strategies` land.
   two leaves the other two at 80% utilisation, and queueing eats the gain from
   isolation. The default of 8 nodes avoids this; results at 4 nodes measure the
   cliff, not the strategy.
-- **Fixed attackers.** v0.1 has the four built-in scenarios only, with
-  attackers hostile from the start. Delayed onset and the full attack catalogue
-  arrive in v0.3.
+- **Two built-in attacks.** The scenarios place a Sybil and a blackhole,
+  hostile from the start unless `attack_start_s` delays them. The rest of the
+  attack catalogue arrives during v0.3 (see [Attacks](attacks.md)).
 - **Recordings are large.** A default 120 s run is about 15,500 lines and
   1.5 MB, almost all of it `route` and `report`. 600 paired runs is close to
   a gigabyte, so record the runs you want to score, not every run by default.
