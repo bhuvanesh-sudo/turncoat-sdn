@@ -9,10 +9,9 @@
 
 > **Status: v0.2 in progress.** v0.1 is merged: the simulator, the five
 > strategies and the trust model run on a plain laptop. v0.2 adds the shared
-> `events.jsonl` format with a validator, simulated runs recorded to it, and
-> the scorers that read it. The `turncoat run`, `score` and `validate`
-> commands are still being built, so for now the [quick start](#quick-start-v02)
-> uses Python and `python -m`. See the [release plan](#release-plan).
+> `events.jsonl` format with a validator, the scorers that read it, and the
+> `turncoat run`, `validate` and `score` commands. See the
+> [release plan](#release-plan).
 
 ---
 
@@ -84,60 +83,48 @@ turncoat --version
 The core needs only NumPy and SciPy. It never imports os-ken, Ryu or Mininet,
 and a test enforces that.
 
-Then record one simulated run, check the file, and score it. Save this as
-`record.py`:
-
-```python
-import itertools
-
-from turncoat_sdn.events import EventWriter
-from turncoat_sdn.sim import simulate
-from turncoat_sdn.trust import SimTrustModel, latency_tell
-
-
-def round_robin(n, rng):
-    cycle = itertools.cycle(range(n))
-
-    class RoundRobin:
-        def choose(self, trust, claimed_cpu, rtt_ms, anomaly):
-            return next(cycle)
-
-    return RoundRobin()
-
-
-with EventWriter(
-    "run.jsonl", backend="sim", seed=1000, strategy="round_robin", scenario="both"
-) as rec:
-    run = simulate(
-        round_robin,
-        "both",
-        seed=1000,
-        trust=SimTrustModel,
-        latency_tell=latency_tell,
-        recorder=rec,
-    )
-print(f"{run.slo_violation_rate:.3f} SLO violations, isolated at {run.time_to_isolate_s} s")
-```
+Then record one simulated run, check the file, and score it:
 
 ```bash
-python record.py
-python -m turncoat_sdn.events.validate run.jsonl
-python -m turncoat_sdn.scoring.attack_report run.jsonl
+turncoat run --strategy zt_sdn --scenario both --seed 1 -o run.jsonl
+turncoat validate run.jsonl
+turncoat score run.jsonl
 ```
 
-The validator reports `valid, schema 1.0`, and the attack report prints a
-confusion matrix: the Sybil on `srv8` and the dropper on `srv7` are both named
-correctly, 3 seconds after onset.
+```
+run.jsonl  (sim backend, strategy zt_sdn, scenario both, seed 1)
+
+Service
+  Tasks offered            7,624
+  Completed                7,609   99.80% availability
+  Failed                       5   0.07%
+  SLO violations          11.63%   deadline 500 ms
+  Latency, mean / p95      240.0   / 684.9 ms
+  Routed to attackers      0.46%
+
+Attackers
+  srv7     blackhole  named correctly as blackhole
+           detected 3.0 s after onset
+           flagged for quarantine 3.0 s after onset; no traffic after that
+  srv8     sybil      named correctly as sybil
+           detected 3.0 s after onset
+           flagged for quarantine 3.0 s after onset; no traffic after that
+
+Detection: 2 of 2 attackers named correctly, 2 flagged, 2 cut off; 0 of 6 honest subjects mislabelled, 0 flagged.
+```
+
+Both attackers are named and cut off three seconds after they start. Run the
+same seed with `--strategy round_robin` and the controller still flags them,
+but nothing acts on it: a quarter of all traffic keeps landing on attackers.
+Every command and option is in [docs/cli.md](docs/cli.md).
 
 ### Where this is going
 
-This is the experience we are building towards. `run`, `score` and
-`validate` land in v0.2, `compare` in v0.4:
+More attacks arrive in v0.3 (`--scenario on-off` among them), and
+comparisons over many seeds in v0.4:
 
 ```bash
-pip install turncoat-sdn
 turncoat run --scenario on-off --strategy zt_sdn --seed 1 -o run.jsonl
-turncoat score run.jsonl
 turncoat compare --strategies zt_sdn,least_conn --seeds 30
 ```
 
@@ -163,7 +150,7 @@ turncoat-sdn/
 |   |-- events/       # schema, JSONL writer and reader, validator
 |   |-- scoring/      # attack, nfr, interval, availability
 |   |-- stats/        # Wilcoxon + Holm, bootstrap CIs, aggregator
-|   `-- cli.py        # turncoat run / score / validate / compare
+|   `-- cli/          # turncoat run / validate / score (compare in v0.4)
 |-- backends/mininet/ # optional live testbed (v1.0)
 |-- examples/         # custom scenario, strategy and attack (v1.0)
 |-- docs/             # documentation set
@@ -180,6 +167,7 @@ and ground truth. Then:
   paired, and how to record a run
 - [docs/event-format.md](docs/event-format.md): every line a recording can
   hold, and how to validate one
+- [docs/cli.md](docs/cli.md): every `turncoat` command and option
 - [docs/scoring.md](docs/scoring.md): what each score means
 - [docs/strategies.md](docs/strategies.md) and
   [docs/trust-model.md](docs/trust-model.md): the baselines and the trust
