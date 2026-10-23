@@ -10,6 +10,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from turncoat_sdn.attacks import Blackhole, ServerAttack, Sybil
+
 #: The built-in attack scenarios, in reporting order.
 SCENARIOS: tuple[str, ...] = ("clean", "sybil", "drop", "both")
 
@@ -19,6 +21,10 @@ ARRIVAL_SEED_OFFSET = 0
 SERVICE_SEED_OFFSET = 17
 JITTER_SEED_OFFSET = 43
 SELECTION_SEED_OFFSET = 99
+#: Attacker at node index ``i`` draws from ``seed + ATTACK_SEED_OFFSET + i``.
+#: Its own stream, so an attack that draws random numbers never shifts the
+#: workload the strategies are paired on.
+ATTACK_SEED_OFFSET = 211
 
 
 @dataclass(frozen=True)
@@ -86,6 +92,13 @@ class SimConfig:
     """
     sybil_rtt_ms: float = 220.0
     """How slowly the Sybil answers ``/status``. This is the latency tell."""
+    attack_start_s: float = 0.0
+    """Onset of the scenario's built-in attackers, in simulated seconds.
+
+    Before it they behave honestly; 0.0 makes them hostile from the start, as
+    in the final-year project. It does not apply to attackers passed to
+    :func:`~turncoat_sdn.sim.simulate` as ``attacks``, which carry their own.
+    """
 
     @property
     def capacity(self) -> float:
@@ -98,18 +111,36 @@ class SimConfig:
         return self.load_factor * self.capacity
 
 
-def malicious_roles(scenario: str, n_nodes: int) -> dict[int, str]:
-    """Return which node indices misbehave in ``scenario``, and how.
+def scenario_attacks(scenario: str, config: SimConfig | None = None) -> dict[int, ServerAttack]:
+    """Return the attackers ``scenario`` places, keyed by node index.
 
     Attackers sit at the end of the index range so they are never the node a
-    round-robin happens to start on.
+    round-robin happens to start on. Every one turns at
+    ``config.attack_start_s``.
     """
+    cfg = config or SimConfig()
+    n = cfg.n_nodes
+
+    def sybil() -> Sybil:
+        return Sybil(
+            cfg.attack_start_s,
+            claimed_cpu=cfg.sybil_claimed_cpu,
+            slowdown=cfg.sybil_slowdown,
+            rtt_ms=cfg.sybil_rtt_ms,
+        )
+
     if scenario == "clean":
         return {}
     if scenario == "sybil":
-        return {n_nodes - 1: "sybil"}
+        return {n - 1: sybil()}
     if scenario == "drop":
-        return {n_nodes - 1: "drop"}
+        return {n - 1: Blackhole(cfg.attack_start_s)}
     if scenario == "both":
-        return {n_nodes - 1: "sybil", n_nodes - 2: "drop"}
+        return {n - 1: sybil(), n - 2: Blackhole(cfg.attack_start_s)}
     raise ValueError(f"unknown scenario {scenario!r}; expected one of {SCENARIOS}")
+
+
+def malicious_roles(scenario: str, n_nodes: int) -> dict[int, str]:
+    """Return which node indices misbehave in ``scenario``, and their attack labels."""
+    attacks = scenario_attacks(scenario, SimConfig(n_nodes=n_nodes))
+    return {i: attack.name for i, attack in attacks.items()}

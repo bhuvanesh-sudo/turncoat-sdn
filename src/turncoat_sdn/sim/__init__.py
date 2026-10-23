@@ -5,8 +5,9 @@ Lands in: v0.1.
 Ported from the final-year project:
 evaluation/baseline.py (simulator half); recording to events.jsonl in v0.2.
 
-The simulator owns the network, the clients and the attackers. Routing, trust
-and the latency tell are hooks passed in by the caller (see
+The simulator owns the network, the clients and the attackers; how each
+attacker behaves, and when it turns, comes from :mod:`turncoat_sdn.attacks`.
+Routing, trust and the latency tell are hooks passed in by the caller (see
 :mod:`turncoat_sdn.sim.hooks`), so this package needs nothing from the
 controller. A minimal run::
 
@@ -26,7 +27,7 @@ This module must not import os-ken, Ryu or Mininet.
 
 from __future__ import annotations
 
-from turncoat_sdn.sim.config import SCENARIOS, SimConfig, malicious_roles
+from turncoat_sdn.sim.config import SCENARIOS, SimConfig, malicious_roles, scenario_attacks
 from turncoat_sdn.sim.engine import UNTRUSTED_DEFAULT, node_id, run_paired, simulate
 from turncoat_sdn.sim.hooks import (
     LatencyTell,
@@ -62,6 +63,7 @@ __all__ = [
     "malicious_roles",
     "node_id",
     "run_paired",
+    "scenario_attacks",
     "simulate",
     "write_csv",
 ]
