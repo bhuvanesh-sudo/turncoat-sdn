@@ -5,12 +5,14 @@
 [![CI](https://github.com/bhuvanesh-sudo/turncoat-sdn/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/bhuvanesh-sudo/turncoat-sdn/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](pyproject.toml)
-[![Status: v0.1 in progress](https://img.shields.io/badge/status-v0.1%20in%20progress-orange.svg)](CHANGELOG.md)
+[![Status: v0.2 in progress](https://img.shields.io/badge/status-v0.2%20in%20progress-orange.svg)](CHANGELOG.md)
 
-> **Status: v0.1 (scaffold).** The package layout, CI and contribution workflow
-> are in place. The simulator, strategies and trust model are being ported in
-> this release. The commands under "Where this is going" do not work yet. See
-> the [release plan](#release-plan).
+> **Status: v0.2 in progress.** v0.1 is merged: the simulator, the five
+> strategies and the trust model run on a plain laptop. v0.2 adds the shared
+> `events.jsonl` format with a validator, simulated runs recorded to it, and
+> the scorers that read it. The `turncoat run`, `score` and `validate`
+> commands are still being built, so for now the [quick start](#quick-start-v02)
+> uses Python and `python -m`. See the [release plan](#release-plan).
 
 ---
 
@@ -55,16 +57,19 @@ scorers --> statistics --> report
         (who was caught, how fast, at what cost)
 ```
 
-| Part | What it does |
-|---|---|
-| **Simulator** | Seeded discrete-event model of edge servers, IoT clients and a load-balancing strategy. Needs no switch, root access or Mininet. |
-| **Attack library** | Six hostile behaviours: sybil, blackhole, grayhole, on-off, flood and identity spoof. Each has a configurable onset `start_s`. |
-| **Event format** | One JSON object per line, covering every routing decision, outcome, classification and quarantine, plus the ground truth. |
-| **Scorers and statistics** | Detection accuracy and latency, availability, throughput and latency over time, plus paired Wilcoxon tests with Holm correction and bootstrap CIs. |
+| Part | What it does | Status |
+|---|---|---|
+| **Simulator** | Seeded discrete-event model of edge servers, IoT clients and a load-balancing strategy. Needs no switch, root access or Mininet. | v0.1; records runs to `events.jsonl` from v0.2 |
+| **Strategies and trust model** | `random`, `round_robin`, `least_conn`, `no_trust` and `zt_sdn`, plus the trust calculator, EdgeScore selector, isolation threshold and anomaly gate. | v0.1 |
+| **Event format** | One JSON object per line, covering every routing decision, outcome, classification and quarantine, plus the ground truth. Versioned, with a validator. | v0.2 |
+| **Scorers** | Detection accuracy and latency with a confusion matrix, availability, NFR and interval metrics. | v0.2 |
+| **Attack library** | Six hostile behaviours: sybil, blackhole, grayhole, on-off, flood and identity spoof. Each has a configurable onset `start_s`. | v0.3; the simulator has sybil and drop built in |
+| **Statistics** | Paired Wilcoxon tests with Holm correction and bootstrap CIs. | v0.4 |
 
-## Quick start (v0.1)
+## Quick start (v0.2)
 
-v0.1 is for contributors. Install from source and run the test suite:
+Install from source and run the test suite (full details in
+[INSTALL.md](INSTALL.md)):
 
 ```bash
 git clone https://github.com/bhuvanesh-sudo/turncoat-sdn.git
@@ -79,9 +84,55 @@ turncoat --version
 The core needs only NumPy and SciPy. It never imports os-ken, Ryu or Mininet,
 and a test enforces that.
 
+Then record one simulated run, check the file, and score it. Save this as
+`record.py`:
+
+```python
+import itertools
+
+from turncoat_sdn.events import EventWriter
+from turncoat_sdn.sim import simulate
+from turncoat_sdn.trust import SimTrustModel, latency_tell
+
+
+def round_robin(n, rng):
+    cycle = itertools.cycle(range(n))
+
+    class RoundRobin:
+        def choose(self, trust, claimed_cpu, rtt_ms, anomaly):
+            return next(cycle)
+
+    return RoundRobin()
+
+
+with EventWriter(
+    "run.jsonl", backend="sim", seed=1000, strategy="round_robin", scenario="both"
+) as rec:
+    run = simulate(
+        round_robin,
+        "both",
+        seed=1000,
+        trust=SimTrustModel,
+        latency_tell=latency_tell,
+        recorder=rec,
+    )
+print(f"{run.slo_violation_rate:.3f} SLO violations, isolated at {run.time_to_isolate_s} s")
+```
+
+```bash
+python record.py
+python -m turncoat_sdn.events.validate run.jsonl
+python -m turncoat_sdn.scoring.attack_report run.jsonl
+```
+
+The validator reports `valid, schema 1.0`, and the attack report prints a
+confusion matrix: the Sybil on `srv8` and the dropper on `srv7` are both named
+correctly, 3 seconds after onset.
+
 ### Where this is going
 
-This is the experience we are building towards (v0.2 to v0.4):
+This is the experience we are building towards. `run`, `score` and
+`validate` land in v0.2, `compare` in v0.4:
 
 ```bash
 pip install turncoat-sdn
@@ -94,8 +145,8 @@ turncoat compare --strategies zt_sdn,least_conn --seeds 30
 
 | Release | Goal | Demo at the end |
 |---|---|---|
-| **v0.1** | The simulator runs on its own | `pytest` passes on a clean machine with no os-ken; one simulated run completes |
-| v0.2 | One event format, scorers read it | `turncoat run` then `turncoat score` prints detection results |
+| v0.1 | The simulator runs on its own | `pytest` passes on a clean machine with no os-ken; one simulated run completes |
+| **v0.2** | One event format, scorers read it | `turncoat run` then `turncoat score` prints detection results |
 | v0.3 | The full attack catalogue | All six attacks run and are scored, each with its onset visible |
 | v0.4 | Statistics people can trust | `turncoat compare` prints p-values and CIs over 30 seeds |
 | v1.0 | Ready for others | A stranger follows this README from zero to a comparison table |
@@ -120,10 +171,29 @@ turncoat-sdn/
 `-- .github/          # CI workflow, PR and issue templates
 ```
 
+## Documentation
+
+Start with [docs/concepts.md](docs/concepts.md) for trust, EdgeScore, the gate
+and ground truth. Then:
+
+- [docs/simulator.md](docs/simulator.md): how a run works, why seeds are
+  paired, and how to record a run
+- [docs/event-format.md](docs/event-format.md): every line a recording can
+  hold, and how to validate one
+- [docs/scoring.md](docs/scoring.md): what each score means
+- [docs/strategies.md](docs/strategies.md) and
+  [docs/trust-model.md](docs/trust-model.md): the baselines and the trust
+  formula's blind spot
+- [docs/architecture.md](docs/architecture.md): how the parts fit, and what
+  may import what
+
+[docs/README.md](docs/README.md) lists every page, its owner and its release.
+
 ## Contributing
 
-Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request. It
-covers branch names, commit style, the review rota and the definition of done.
+Read [CONTRIBUTING.md](CONTRIBUTING.md) before you push. It covers the
+release-branch workflow, commit style, the review rota and the definition of
+done.
 Changes are recorded in [CHANGELOG.md](CHANGELOG.md).
 
 ## Origin
