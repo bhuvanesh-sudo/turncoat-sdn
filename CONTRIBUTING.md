@@ -121,6 +121,8 @@ should be able to read the history and follow how the change was built.
   `tests/test_package.py` both enforce this.
 - Numbers ported from the final-year project still match. If a golden-file
   test fails, fix the move, never the expected numbers.
+- Anything that writes or reads `events.jsonl` agrees with
+  `docs/event-format.md`, and recordings it produces pass the validator.
 
 ## 6. Definition of done
 
@@ -136,15 +138,26 @@ A task is done only when all of these are true:
 
 - **Core stays SDN-free.** Code that needs os-ken or Mininet goes under
   `backends/`, never under `src/turncoat_sdn/`.
-- **Seeds are sacred.** Anything random takes an explicit seed or
-  `numpy.random.Generator`. Never use the global random state.
+- **Seeds are sacred.** Anything random takes an explicit seed, a seeded
+  `random.Random` or a `numpy.random.Generator`. Never use the global random
+  state.
+- **`sim` stays on its own.** The simulator imports nothing else from
+  `turncoat_sdn`. Routing, trust, the latency tell and the recorder are hooks
+  the caller passes in (see `docs/architecture.md`).
+- **Runs are recorded in the shared format.** Anything that produces runs
+  writes them with `turncoat_sdn.events.EventWriter`, and its tests check that
+  the result passes `turncoat_sdn.events.validate`. A change to the schema
+  itself goes through arj, updates `docs/event-format.md` in the same push, and
+  bumps `SCHEMA_VERSION` when a reader would notice.
 - **Port, then improve.** When moving code from the final-year project, first
   move it unchanged and prove the numbers match, then refactor in a separate
   commit.
 - **Leave internal notes behind.** Strip references to `plan.md`,
   `panel_fix.md`, `memory/` notes and run-specific comments when porting.
 - **No generated artefacts in Git.** That means PDFs, results CSVs, figures,
-  recordings and archives. Regenerate them from code.
+  recordings and archives. Regenerate them from code. Small hand-written
+  fixtures under `tests/`, such as `tests/events/sample_run.jsonl`, are the
+  exception; tests that need a full run record one into `tmp_path`.
 
 ## 8. Rhythm
 
