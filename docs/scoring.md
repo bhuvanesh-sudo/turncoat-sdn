@@ -249,10 +249,10 @@ server costs precision just as missing an attacker costs recall.
 
 ### Known limits
 
-- **The simulator cannot write recordings yet.** That arrives with bv's v0.2
-  task. Until then `tests/scoring/conftest.py` records a simulated run through
-  the simulator's own hooks, rebuilding the timeout-rate tell from its
-  settings. Switch the tests to the real writer when it lands.
+- **Simulated runs come from the simulator's own recording.** Since v0.2,
+  `tests/scoring/conftest.py` scores the `events.jsonl` that `simulate` writes
+  (see the Recording section of `docs/simulator.md`), so a change to what the
+  simulator records shows up here.
 - **The event fields are provisional.** The scorer follows the final-year
   project's `topology` shape (`graph.nodes`, `attack_start_s`). The project
   plan sketches a flatter one (`servers`, `start_s`). Whatever arj's schema
