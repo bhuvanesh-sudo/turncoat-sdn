@@ -14,7 +14,7 @@ from __future__ import annotations
 import random
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from typing import Literal, Protocol
+from typing import Any, Literal, Protocol
 
 
 class Router(Protocol):
@@ -118,3 +118,22 @@ class LatencyTell(Protocol):
     ) -> TellResult:
         """Decide whether one node looks like a liar, carrying ``strikes`` forward."""
         ...
+
+
+class Recorder(Protocol):
+    """Where a run's events go, one call per event, in time order.
+
+    :class:`turncoat_sdn.events.EventWriter` satisfies it as it is. The caller
+    opens the writer, which stamps the ``header`` line with the seed, strategy
+    and scenario, and the simulator writes everything after it, starting with
+    the ``topology``.
+    """
+
+    def write(self, event_type: str, ts: float, **fields: Any) -> object:
+        """Record one event. ``ts`` is seconds since the run started."""
+        ...
+
+
+#: Opens the recorder for one run of :func:`~turncoat_sdn.sim.run_paired`,
+#: given the strategy label, scenario and seed. Return ``None`` to skip it.
+RecorderFactory = Callable[[str, str, int], Recorder | None]
