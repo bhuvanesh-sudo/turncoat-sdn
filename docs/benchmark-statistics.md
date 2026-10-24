@@ -57,4 +57,4 @@ This module summarises supplied benchmark records. It does not execute simulatio
 - Results depend on the supplied benchmark runs.
 - Missing values reduce the observation count for the affected metric.
 - Descriptive summaries do not establish statistical significance.
-- Paired Wilcoxon tests, Holm correction, bootstrap confidence intervals, and replicate aggregation remain separate v0.4 work.
+- Paired Wilcoxon tests and Holm correction remain separate v0.4 work. Bootstrap confidence intervals and the replicate results file are in [statistics.md](statistics.md), and `summarize_metrics(..., confidence=0.95)` adds an interval to each summary.
