@@ -6,7 +6,9 @@ Three questions, answered from the recording alone:
   each subject's label is scored against the ground truth in ``topology``
   (:mod:`turncoat_sdn.scoring.attack_report`).
 * **How fast?** Detection latency from that report, and the first
-  ``quarantine`` of each attacker, measured from its onset.
+  ``quarantine`` of each attacker, measured from its onset. An IoT client is
+  never quarantined; it is refused at admission, and ``auth_denied`` events
+  count those refusals.
 * **At what cost?** Service totals rebuilt from ``route``, ``route_denied``
   and ``report`` events, then passed to the NFR and availability scorers.
 
@@ -34,7 +36,9 @@ from turncoat_sdn.scoring.attack_report import (
     SubjectResult,
     format_report,
     ground_truth,
+    onset_times,
     score_run,
+    subject_aliases,
 )
 
 #: The SLO deadline when the recording does not carry one, as in the simulator.
@@ -100,14 +104,26 @@ def service_totals(events: Sequence[Event], slo_ms: float) -> dict[str, Any]:
 
 
 def attacker_share(events: Sequence[Event]) -> float | None:
-    """Fraction of routed tasks sent to servers the ground truth marks as attackers."""
+    """Fraction of routed tasks sent to an attacking server after its onset.
+
+    Traffic to a turncoat before it turns is traffic to an honest server, so
+    it does not count, as in the simulator's ``malicious_share``. A server
+    with no recorded onset counts from the start.
+    """
     truth = ground_truth(events)
-    attackers = {s for s, (kind, label) in truth.items() if kind == "node" and label != NO_ATTACK}
+    onsets = onset_times(events)
+    t0 = next((float(e["ts"]) for e in events if isinstance(e.get("ts"), (int, float))), 0.0)
+    attackers = {
+        s: t0 + onsets.get(s, 0.0)
+        for s, (kind, label) in truth.items()
+        if kind == "node" and label != NO_ATTACK
+    }
     routed = to_attackers = 0
     for event in events:
         if event.get("type") == "route":
             routed += 1
-            if event.get("chosen") in attackers:
+            turned = attackers.get(event.get("chosen"))
+            if turned is not None and float(event.get("ts", 0.0)) >= turned:
                 to_attackers += 1
     if routed == 0:
         return None
@@ -140,8 +156,29 @@ def routed_after(events: Sequence[Event], node: str, since: float) -> int:
     return count
 
 
+def refused_at_admission(events: Sequence[Event]) -> dict[str, int]:
+    """How many requests the admission check refused from each sender.
+
+    Keyed by the device that SENT the request, worked out from its source
+    address, not by the identity it claimed: a spoofer's refusals are its own,
+    not its victim's. A refusal with no source address falls back to the claim.
+    """
+    alias = subject_aliases(events)
+    counts: dict[str, int] = {}
+    for event in events:
+        if event.get("type") == "auth_denied":
+            sender = event.get("source_ip") or event.get("device_id")
+            if isinstance(sender, str):
+                sender = alias.get(sender, sender)
+                counts[sender] = counts.get(sender, 0) + 1
+    return counts
+
+
 def _subject_row(
-    result: SubjectResult, quarantined_at: float | None, events: Sequence[Event]
+    result: SubjectResult,
+    quarantined_at: float | None,
+    events: Sequence[Event],
+    refused: int | None = None,
 ) -> dict[str, Any]:
     isolation = None
     if quarantined_at is not None and result.onset_s is not None:
@@ -149,7 +186,7 @@ def _subject_row(
     after = None
     if quarantined_at is not None and result.kind == "node":
         after = routed_after(events, result.subject, quarantined_at)
-    return {
+    row = {
         "subject": result.subject,
         "kind": result.kind,
         "truth": result.truth,
@@ -162,6 +199,9 @@ def _subject_row(
         "isolation_latency_s": isolation,
         "routed_after_quarantine": after,
     }
+    if result.kind == "client":
+        row["refused_at_admission"] = refused or 0
+    return row
 
 
 def score_recording(
@@ -183,9 +223,32 @@ def score_recording(
 
     results = score_run(events, window_cycles=window_cycles)
     quarantines = first_quarantine(events)
-    subjects = [_subject_row(r, quarantines.get(r.subject), events) for r in results]
+    refusals = refused_at_admission(events)
+    subjects = [
+        _subject_row(r, quarantines.get(r.subject), events, refusals.get(r.subject))
+        for r in results
+    ]
     attackers = [s for s in subjects if s["truth"] != NO_ATTACK]
     honest = [s for s in subjects if s["truth"] == NO_ATTACK]
+
+    detection: dict[str, Any] = {
+        "attackers": len(attackers),
+        "attackers_named": sum(1 for s in attackers if s["correct"]),
+        "attackers_in_family": sum(1 for s in attackers if s["family_correct"]),
+        "attackers_quarantined": sum(1 for s in attackers if s["quarantined_at_s"] is not None),
+        "attackers_cut_off": sum(1 for s in attackers if s["routed_after_quarantine"] == 0),
+        "honest": len(honest),
+        "honest_mislabelled": sum(1 for s in honest if not s["correct"]),
+        "honest_quarantined": sum(1 for s in honest if s["quarantined_at_s"] is not None),
+        "window_cycles": window_cycles,
+    }
+    # Only a recording with IoT clients has an admission check to report on.
+    if any(s["kind"] == "client" for s in subjects):
+        detection["admission"] = {
+            "refused": sum(refusals.values()),
+            "refused_attackers": sum(s.get("refused_at_admission", 0) for s in attackers),
+            "refused_honest": sum(s.get("refused_at_admission", 0) for s in honest),
+        }
 
     return {
         "recording": _header(events),
@@ -201,17 +264,7 @@ def score_recording(
             "p95_latency_ms": nfr["p95_latency_ms"],
             "attacker_share": attacker_share(events),
         },
-        "detection": {
-            "attackers": len(attackers),
-            "attackers_named": sum(1 for s in attackers if s["correct"]),
-            "attackers_in_family": sum(1 for s in attackers if s["family_correct"]),
-            "attackers_quarantined": sum(1 for s in attackers if s["quarantined_at_s"] is not None),
-            "attackers_cut_off": sum(1 for s in attackers if s["routed_after_quarantine"] == 0),
-            "honest": len(honest),
-            "honest_mislabelled": sum(1 for s in honest if not s["correct"]),
-            "honest_quarantined": sum(1 for s in honest if s["quarantined_at_s"] is not None),
-            "window_cycles": window_cycles,
-        },
+        "detection": detection,
         "subjects": subjects,
         "attack_results": results,
     }
@@ -293,7 +346,10 @@ def format_scores(scores: dict[str, Any], name: str) -> str:
     for s in attackers:
         add(f"  {s['subject']:<8} {s['truth']:<10} {_verdict(s)} as {s['predicted']}")
         add(f"           detected {_seconds(s['detection_latency_s'])} after onset")
-        if s["quarantined_at_s"] is None:
+        if s["kind"] == "client":
+            refused = s["refused_at_admission"]
+            add(f"           {refused:,} request{'' if refused == 1 else 's'} refused at admission")
+        elif s["quarantined_at_s"] is None:
             add("           never flagged for quarantine")
         else:
             add(
@@ -307,6 +363,13 @@ def format_scores(scores: dict[str, Any], name: str) -> str:
         f"{det['honest_mislabelled']} of {det['honest']} honest subjects mislabelled, "
         f"{det['honest_quarantined']} flagged."
     )
+    admission = det.get("admission")
+    if admission is not None:
+        add(
+            f"Admission: {admission['refused']:,} requests refused, "
+            f"{admission['refused_attackers']:,} from attackers and "
+            f"{admission['refused_honest']:,} from honest devices."
+        )
     return "\n".join(out)
 
 
@@ -393,6 +456,7 @@ __all__ = [
     "first_quarantine",
     "format_scores",
     "recorded_slo_ms",
+    "refused_at_admission",
     "routed_after",
     "score_recording",
     "service_totals",

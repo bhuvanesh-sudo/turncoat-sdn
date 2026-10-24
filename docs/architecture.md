@@ -73,14 +73,14 @@ python -c "import turncoat_sdn"
 
 | Subpackage | Holds | Owner | Status | Ported from (final-year project) |
 |---|---|---|---|---|
-| `sim/` | Seeded discrete-event simulator, scenarios, run metrics, hook protocols | bv | v0.1 | `evaluation/baseline.py` |
+| `sim/` | Seeded discrete-event simulator, scenarios, run metrics, hook protocols; from v0.3 the IoT clients and the admission check (`admission.py`) | bv | v0.1 | `evaluation/baseline.py`; `admission.py` from `security/authenticator.py` (`IdentityBinding`, no cipher) |
 | `trust/` | Latency tell | arj | v0.1 | `controller/flow_monitor.py` (two functions only) |
 | `trust/` | Trust calculator, edge selector, thresholds, anomaly gate | ash | v0.1 | `trust_engine/trust_calculator.py`, `contracts/trust_update.py`, `controller/edge_selector.py`, `contracts/thresholds.py` |
 | `strategies/` | `random`, `round_robin`, `least_conn`, `no_trust`, `zt_sdn` behind one interface | arv | planned, v0.1 | `evaluation/baseline.py` |
 | `events/` | Event schema 1.0, JSONL writer and reader, validator (see `event-format.md`) | arj | v0.2 | `controller/event_bus.py` (JSONL part), `evaluation/nfr_report.load_events` |
 | `scoring/` | Attack classifier and attack scorer | ash | v0.2 | `controller/attack_classifier.py`, `evaluation/attack_report.py` |
 | `scoring/` | NFR, interval and availability scorers | arv | planned, v0.2 | `evaluation/nfr_report.py`, `interval_report.py`, `availability_report.py` |
-| `attacks/` | One profile per attack, each with a `start_s` onset | ash and everyone | planned, v0.3 | `simulation/attack_simulator.py` |
+| `attacks/` | The `ServerAttack` and `ClientAttack` interfaces with a `start_s` onset, and one profile per attack | ash and everyone | v0.3 | The attacker branches of `evaluation/baseline.py`, onset logic from `simulation/node_agent.py`, the spoofer from `simulation/iot_client.py` |
 | `stats/` | Paired Wilcoxon with Holm, bootstrap CIs, replicate aggregator | arv, bv, arj | planned, v0.4 | `evaluation/stats.py` |
 | `cli/` | The `turncoat` command (`run`, `validate`, `score`) and the five strategies as simulator routers | jv | v0.2 | `evaluation/baseline.py` (routers) |
 | `backends/mininet/` | Optional live testbed (outside the core package) | bv | planned, v1.0 | `simulation/node_agent.py`, `iot_client.py`, `topology.py` |
@@ -99,8 +99,9 @@ upward, and nothing in the core imports a backend.
                    |
                    v
  strategies --> trust            sim   <-- hooks filled by trust and strategies
-                                          (the caller passes them in;
-     attacks                              sim imports neither)
+                                  |       (the caller passes them in;
+                                  v       sim imports neither)
+                               attacks  <-- imports nothing
 
  backends/mininet  --> may import any core package, plus os-ken and Mininet
 ```
@@ -108,10 +109,13 @@ upward, and nothing in the core imports a backend.
 1. **The core never imports the SDN stack.** No module under
    `src/turncoat_sdn/` imports `os_ken`, `ryu` or `mininet`, directly or
    through another module.
-2. **`sim` imports nothing else from `turncoat_sdn`.** Routing, trust and the
-   latency tell are hooks, declared as protocols in `sim/hooks.py`, so the
-   simulator can be tested on its own with stand-in hooks. The caller (a test,
-   and from v0.2 the CLI) joins the pieces together.
+2. **`sim` imports nothing else from `turncoat_sdn` but `attacks`.** Routing,
+   trust and the latency tell are hooks, declared as protocols in
+   `sim/hooks.py`, so the simulator can be tested on its own with stand-in
+   hooks. The caller (a test, and from v0.2 the CLI) joins the pieces
+   together. Attackers are the one exception, from v0.3: they are part of the
+   simulated world rather than controller decisions, so the simulator builds
+   its scenarios' attackers from `attacks`, which in turn imports nothing.
 3. **Shared logic has one home.** When the live controller and the simulator
    need the same decision, it lives in a pure function in the core, and both
    call it. The latency tell is the first example: the live monitor and the
