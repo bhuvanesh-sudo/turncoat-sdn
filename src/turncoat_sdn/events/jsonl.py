@@ -108,6 +108,46 @@ class EventWriter:
         self.close()
 
 
+class EventList:
+    """Keep a recording in memory, exactly as :func:`read_events` would return it.
+
+    It takes the same arguments as :class:`EventWriter`, minus the path, and
+    fills :attr:`events` with the header and every event written. Each event is
+    passed through JSON on the way in, so it holds what a file would hold: the
+    same values, lists for tuples, and ``ValueError`` for ``NaN``. Scoring many
+    runs this way skips writing and parsing a file per run.
+    """
+
+    def __init__(
+        self,
+        *,
+        backend: str,
+        seed: int | None = None,
+        strategy: str | None = None,
+        scenario: str | None = None,
+        **header_fields: Any,
+    ) -> None:
+        header: Event = {"type": HEADER, "schema_version": SCHEMA_VERSION, "backend": backend}
+        for key, value in (("seed", seed), ("strategy", strategy), ("scenario", scenario)):
+            if value is not None:
+                header[key] = value
+        header.update(header_fields)
+        self.header = header
+        self.events: list[Event] = []
+        self._append(header)
+
+    def write(self, event_type: str, ts: float, **fields: Any) -> Event:
+        """Record one event and return it as stored, as :meth:`EventWriter.write` does."""
+        if "type" in fields:
+            raise ValueError("pass the event type as event_type, not as a field")
+        return self._append({"type": event_type, "ts": ts, **fields})
+
+    def _append(self, event: Event) -> Event:
+        stored: Event = json.loads(json.dumps(event, allow_nan=False))
+        self.events.append(stored)
+        return stored
+
+
 def read_events(path: str | os.PathLike[str]) -> list[Event]:
     """Parse a JSONL recording, header line included.
 
