@@ -149,6 +149,17 @@ A task is done only when all of these are true:
   the result passes `turncoat_sdn.events.validate`. A change to the schema
   itself goes through arj, updates `docs/event-format.md` in the same push, and
   bumps `SCHEMA_VERSION` when a reader would notice.
+- **Attacks go on the attack interface.** A new attack subclasses
+  `turncoat_sdn.attacks.ServerAttack`, sets a class-level `name` the attack
+  classifier knows (see `GROUND_TRUTH_ALIASES`), and overrides only `serve`,
+  `report` or both, never `service_time` or `status`, which apply the onset.
+  It draws randomness only from the `rng` it is handed, keeps no per-run state
+  on the instance, and lives in its own `attacks/<attack>.py`. Its tests in
+  `tests/attacks/` show it is honest before `start_s`, hostile after, that its
+  recording validates, and whether the scorer names it. A built-in scenario
+  is appended to the end of `SCENARIOS`, so the golden files never change.
+  Its entry in `docs/attacks.md` lands in the same push. The full guide is
+  [How to write an attack](docs/attacks.md#how-to-write-an-attack).
 - **Port, then improve.** When moving code from the final-year project, first
   move it unchanged and prove the numbers match, then refactor in a separate
   commit.
