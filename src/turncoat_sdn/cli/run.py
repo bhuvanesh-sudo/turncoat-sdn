@@ -101,7 +101,10 @@ def add_parser(commands: argparse._SubParsersAction) -> argparse.ArgumentParser:
         "--scenario",
         choices=list(SCENARIOS),
         default=DEFAULT_SCENARIO,
-        help=f"which servers attack: none, a Sybil, a dropper or both (default {DEFAULT_SCENARIO})",
+        help=(
+            "which servers attack: none, a Sybil, a dropper, both, or a grayhole "
+            f"(default {DEFAULT_SCENARIO})"
+        ),
     )
     parser.add_argument(
         "--seed",

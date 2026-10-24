@@ -77,7 +77,7 @@ class TestScenariosUseTheInterface:
 
     def test_unknown_scenario(self):
         with pytest.raises(ValueError, match="unknown scenario"):
-            scenario_attacks("grayhole", SHORT)
+            scenario_attacks("no_such_scenario", SHORT)
 
     @pytest.mark.parametrize("scenario", SCENARIOS)
     def test_passing_the_attacks_explicitly_changes_nothing(self, scenario):

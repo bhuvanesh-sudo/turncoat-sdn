@@ -10,10 +10,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from turncoat_sdn.attacks import Blackhole, ServerAttack, Sybil
+from turncoat_sdn.attacks import Blackhole, Grayhole, ServerAttack, Sybil
 
-#: The built-in attack scenarios, in reporting order.
-SCENARIOS: tuple[str, ...] = ("clean", "sybil", "drop", "both")
+#: The built-in attack scenarios, in reporting order. ``grayhole`` arrived in
+#: v0.3, after the final-year project's four, so it reports last.
+SCENARIOS: tuple[str, ...] = ("clean", "sybil", "drop", "both", "grayhole")
 
 # Offsets that give each random stream its own seed. Changing any of them
 # changes every simulated number, so they are part of the golden contract.
@@ -92,6 +93,13 @@ class SimConfig:
     """
     sybil_rtt_ms: float = 220.0
     """How slowly the Sybil answers ``/status``. This is the latency tell."""
+    grayhole_drop_fraction: float = 0.5
+    """Share of the tasks it accepts that the grayhole drops once it turns.
+
+    The observed timeout rate runs higher, about 0.6, because a dropped task
+    holds its worker until the client gives up and the backlog behind it waits.
+    Much past 0.7 the classifier starts calling it a blackhole.
+    """
     attack_start_s: float = 0.0
     """Onset of the scenario's built-in attackers, in simulated seconds.
 
@@ -137,6 +145,8 @@ def scenario_attacks(scenario: str, config: SimConfig | None = None) -> dict[int
         return {n - 1: Blackhole(cfg.attack_start_s)}
     if scenario == "both":
         return {n - 1: sybil(), n - 2: Blackhole(cfg.attack_start_s)}
+    if scenario == "grayhole":
+        return {n - 1: Grayhole(cfg.attack_start_s, drop_fraction=cfg.grayhole_drop_fraction)}
     raise ValueError(f"unknown scenario {scenario!r}; expected one of {SCENARIOS}")
 
 
