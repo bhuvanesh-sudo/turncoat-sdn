@@ -14,7 +14,7 @@ attacks it is given.
 | [Sybil](#sybil) | claims to be idle, serves slowly, answers polls slowly | It never fails a task, so its trust stays high | `sybil` | `attacks/sybil.py` | v0.3 (ash) |
 | [Blackhole](#blackhole) | accepts every task and drops it | Easy once it starts; the test is how fast | `drop` | `attacks/blackhole.py` | v0.3 (ash) |
 | [Grayhole](#grayhole) | accepts every task and drops a fraction of them | Its losses blend into normal failures | `grayhole` | `attacks/grayhole.py` | v0.3 (bv) |
-| On-off | alternates honest and malicious phases | Recovers its score in the honest phases | `onoff` | | v0.3 (arj) |
+| [On-off](#on-off) | alternates Sybil phases with honest ones | Recovers its score in the honest phases | `onoff` | `attacks/on_off.py` | v0.3 (arj; written by bv) |
 | Flood | an IoT client sends far above its normal rate | Must be told apart from a busy client | `flood` | | v0.3 (arv) |
 | Identity spoof | an IoT client claims another device's identity | Looks like a legitimate device | `spoof` | | v0.3 (jv) |
 
@@ -256,6 +256,45 @@ Settings: `drop_fraction`, taken in the `grayhole` scenario from
 the scorer to name it. Below that the tell fires only intermittently or not at
 all, and above it the median rate starts to reach the blackhole bar.
 
+### On-off
+
+**Module:** `attacks/on_off.py` · **Label:** `onoff` · **Author:** bv, for arj's
+v0.3 task
+
+Once it turns, it lies like the Sybil for `on_s` seconds (claims a load of
+0.1, serves at half speed, answers polls at 220 ms), then behaves honestly for
+`off_s` seconds, and repeats. The defaults are 10 s each, a 20 s period. The
+phase is worked out from `now`, so it draws no random numbers and keeps no
+per-run state.
+
+Its hostile phase lies rather than drops on purpose. The classifier tells
+on-off from its sibling by intermittency inside the load-dishonesty family:
+a liar that goes measurably honest between phases is `onoff`, a steady one is
+`sybil`. An attacker that dropped tasks in its hostile phases would be scored
+as a grayhole or blackhole.
+
+```bash
+turncoat run --strategy zt_sdn --scenario onoff --seed 1 -o onoff.jsonl
+turncoat score onoff.jsonl
+```
+
+`zt_sdn` flags it 3 s after onset, but cannot keep it out. Each honest phase
+drains its anomaly level and lifts its quarantine, so on seed 1, 473 tasks
+still reach it after it was first flagged and it draws 6.5% of all traffic,
+against `round_robin`'s eighth (12.5%). It never fails a task, so the cost is
+latency, not availability. That recovery is the attack.
+
+It can only be named once it has gone quiet and come back, so detection
+latency is about one period plus the tell's 2 s reaction: 22 s at the
+defaults. The scorer names it `onoff` on all 15 seeds tried (1 to 10, 1000 to
+1004), both hostile from the start and turning at 30 s, and for every phase
+pair from 3 s/3 s to 20 s/10 s. Where it stops is under
+[Known limits](#known-limits).
+
+Settings: `on_s`, `off_s`, and the Sybil's `claimed_cpu`, `slowdown` and
+`rtt_ms`. The `onoff` scenario takes them from `SimConfig.onoff_on_s`,
+`SimConfig.onoff_off_s` and `SimConfig.sybil_*`.
+
 ## Known limits
 
 - **Client-side attacks have no interface yet.** `ServerAttack` changes how a
@@ -268,10 +307,18 @@ all, and above it the median rate starts to reach the blackhole bar.
   server's claimed load with its observed load. The simulator does not model
   that check, so a liar that stays fast, like the `FastLiar` above, is never
   flagged.
-- **On-off needs a long enough good phase.** The classifier can only name
-  on-off if each honest phase lasts at least about 4 s
-  (`ONOFF_MIN_GOOD_PHASE_S`) and the replay window spans two full periods.
-  A faster on-off attacker is still caught, but it is labelled `sybil`.
+- **On-off needs phases of the right length.** Measured against `zt_sdn`
+  in a 120 s run, pinned in `tests/attacks/test_on_off.py`:
+  - An honest phase of 2 s or less is too short to show three clean polls,
+    so the attacker is labelled `sybil`. The family is right. The
+    classifier's own estimate of the floor, `ONOFF_MIN_GOOD_PHASE_S`, is 4 s;
+    3 s still works in the simulator.
+  - Toggling every 2 s or faster, both phases too short, it is never flagged
+    at all: the latency tell never collects consecutive strikes.
+  - Long phases need a long run. The verdict is the modal label, and every
+    poll before the first resumption reads as a Sybil, so a 30 s/30 s
+    attacker in a 120 s run is named `onoff` at 62 s but outvoted by `sybil`.
+    Keep the run to about four periods or more, and the replay window to two.
 - **A grayhole contained by trust alone goes unnamed.** On some seeds
   `zt_sdn`'s trust score falls below 0.3 before the timeout-rate tell has its
   four outcomes. Quarantine then stops new outcomes, so no `anomaly` event is
