@@ -2,15 +2,17 @@
 
 Owner: jv (Repo, CLI, tests and release track).
 
-Three commands join the packages into one workflow::
+Four commands join the packages into one workflow::
 
     turncoat run --scenario both --strategy zt_sdn --seed 1 -o run.jsonl
     turncoat validate run.jsonl
     turncoat score run.jsonl
+    turncoat replicate --seeds 30 -o results.csv
 
 ``run`` drives the simulator and records the run to ``events.jsonl``,
-``validate`` checks a recording against the schema, and ``score`` grades it.
-``compare`` arrives in v0.4. Every command and option is described in
+``validate`` checks a recording against the schema, ``score`` grades it, and
+``replicate`` runs many seeds into one results CSV with a confidence interval
+on every metric. ``compare`` arrives in v0.4. Every command and option is described in
 docs/cli.md.
 
 The CLI is the one place allowed to wire packages together (see
@@ -26,7 +28,7 @@ import argparse
 from collections.abc import Sequence
 
 from turncoat_sdn import __version__
-from turncoat_sdn.cli import run, score, validate
+from turncoat_sdn.cli import replicate, run, score, validate
 from turncoat_sdn.cli.common import EXIT_FAILED, EXIT_OK, EXIT_UNREADABLE
 
 PROG = "turncoat"
@@ -55,6 +57,7 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_parser(commands)
     validate.add_parser(commands)
     score.add_parser(commands)
+    replicate.add_parser(commands)
     return parser
 
 
