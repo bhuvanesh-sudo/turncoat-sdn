@@ -71,3 +71,9 @@ fits (Added, Changed, Fixed, Removed).
   choice, with `SimConfig.grayhole_drop_fraction`; tests that the fraction is
   honoured, nothing drops before onset, recordings validate and the scorer
   names it; its entry in `docs/attacks.md` (bv).
+- On-off attack, `OnOff` in `turncoat_sdn.attacks`: lies like the Sybil for
+  `on_s`, is honest for `off_s`, and repeats from its onset (default 10 s
+  each); an `onoff` scenario and `turncoat run --scenario` choice with
+  `SimConfig.onoff_on_s` and `onoff_off_s`; tests of phase timing, onset,
+  pairing, recording and that the scorer names it, with the phase lengths
+  where it stops; its entry in `docs/attacks.md` (arj's task, written by bv).
