@@ -4,9 +4,10 @@
 
 ## What it is
 
-`turncoat_sdn.attacks` holds the turncoats: servers that behave honestly,
-earn trust, and then turn hostile at their onset, `start_s`. Each attack is a
-small class on one interface, `ServerAttack`, and the simulator runs whatever
+`turncoat_sdn.attacks` holds the turncoats: servers and IoT devices that
+behave honestly, earn trust, and then turn hostile at their onset, `start_s`.
+Each attack is a small class on one of two interfaces, `ServerAttack` for a
+server and `ClientAttack` for an IoT device, and the simulator runs whatever
 attacks it is given.
 
 | Attack | After its onset, the server... | What makes it hard to catch | Label | Module | Status |
@@ -16,7 +17,7 @@ attacks it is given.
 | [Grayhole](#grayhole) | accepts every task and drops a fraction of them | Its losses blend into normal failures | `grayhole` | `attacks/grayhole.py` | v0.3 (bv) |
 | [On-off](#on-off) | alternates Sybil phases with honest ones | Recovers its score in the honest phases | `onoff` | `attacks/on_off.py` | v0.3 (arj; written by bv) |
 | Flood | an IoT client sends far above its normal rate | Must be told apart from a busy client | `flood` | | v0.3 (arv) |
-| Identity spoof | an IoT client claims another device's identity | Looks like a legitimate device | `spoof` | | v0.3 (jv) |
+| [Identity spoof](#identity-spoof) | an IoT client claims another device's identity | It holds the fleet key, so its cryptography is always correct | `spoof` | `attacks/spoof.py` | v0.3 (jv) |
 
 The label is the ground truth written into the recording, and the name the
 attack scorer checks its verdict against.
@@ -84,7 +85,24 @@ attacks = {7: Sybil(start_s=20.0), 2: Blackhole(start_s=45.0)}
 run = simulate(zt_sdn, "both", 1000, attacks=attacks, **hooks)
 ```
 
-The scenario name is still the run's label. `attacks={}` runs with no attacker.
+The scenario name is still the run's label. `attacks={}` runs with no server
+attacker.
+
+Client attackers go in `client_attacks`, keyed by client index: client 0 is
+`iot1`, client 37 is `iot38`. Any client attacker turns on the IoT devices
+and the controller's admission check for that run:
+
+```python
+from turncoat_sdn.attacks import IdentitySpoof
+
+spoof = {37: IdentitySpoof(start_s=15.0, target=0)}  # iot38 claims to be iot1
+run = simulate(zt_sdn, "clean", 1000, client_attacks=spoof, **hooks)
+print(run.client_attack_requests, run.client_attack_refused, run.honest_refused)
+# 53 53 0
+```
+
+`client_attacks={}` runs with no client attacker. From the command line,
+`turncoat run --attack` adds either kind (see [cli.md](cli.md)).
 
 ## How to write an attack
 
@@ -129,7 +147,25 @@ and the trust score floors well above 0.3 (see
 [The trust model](trust-model.md)). It does little damage only because it
 serves honestly. That is the kind of result an attack exists to surface.
 
-### Rules for an attack
+### A client attack
+
+An attack by an IoT device subclasses `ClientAttack`. The device's ordinary
+traffic, sent as itself, comes from the simulator's shared arrival stream all
+run, whatever the attack does. From its onset the attack also sends requests
+of its own, always from the device's own address, and decides two things
+about them:
+
+| Method | The simulator asks | Return | Default |
+|---|---|---|---|
+| `interval(now, rng)` | How long until your next request? | Seconds, or `None` to stop | `None`: one request at the onset |
+| `claim(own, now)` | Which device does this request claim to be? | A client index | `own`: its own identity |
+
+The controller's admission check then admits the request into routing, or
+refuses it and records an `auth_denied`. That decision is the simulator's,
+never the attack's. The identity spoof below claims another device on a fixed
+beat. A flood would claim its own identity and return short intervals drawn
+from `rng`.
+
 
 - **Draw randomness only from `rng`.** Each attacker gets its own stream,
   seeded from the run's seed and its node index. A random attack stays
@@ -141,16 +177,20 @@ serves honestly. That is the kind of result an attack exists to surface.
   `spoof` as in the table above; the attack classifier's
   `GROUND_TRUTH_ALIASES` lists every accepted name. An unknown label still
   records and validates, but every verdict on it scores as a miss.
-- **Don't override `service_time` or `status`.** They apply the onset, then
-  call your `serve` and `report`.
+- **Don't override `service_time` or `status`** (or, for a client attack,
+  `first_request_s`, `next_request_s` and `identity`). They apply the onset,
+  then call your methods.
 
 ### Adding one to the catalogue
 
 1. Put the class in `src/turncoat_sdn/attacks/<attack>.py` and export it from
    `attacks/__init__.py`.
-2. If it should be a built-in scenario, add a branch to `scenario_attacks` in
+2. If it should be a built-in scenario, add a branch to `scenario_attacks` (a
+   server attack) or `scenario_client_attacks` (a client attack) in
    `sim/config.py` and its name to `SCENARIOS`. Take its settings from
-   `SimConfig` and its onset from `cfg.attack_start_s`, as the Sybil does.
+   `SimConfig` and its onset from `cfg.attack_start_s`, as the Sybil does. To
+   make it a `turncoat run --attack` choice too, add it to
+   `cli/attack_spec.py`.
 3. Test it in `tests/attacks/`. Test the profile on its own (honest before
    `start_s`, hostile after), then in the simulator, then that the attack
    scorer names it. If the classifier cannot name it, record that honestly as
@@ -180,6 +220,19 @@ count only tasks routed to an attacker after it turned, since traffic to an
 honest server is not a cost. `time_to_isolate_s` is the first poll at which
 every attacker has turned *and* is excluded. With an onset of 0 both are
 exactly what they were before v0.3.
+
+**Client attacks and admission.** A run with a client attacker models
+`n_clients` IoT devices (40, `iot1` to `iot40` at `10.0.0.1` to
+`10.0.0.40`, as in the final-year project). Each arrival is attributed to a
+device by a draw from a stream of its own, so the workload does not move.
+Every request, ordinary or the attacker's, passes the admission check in
+`sim/admission.py` before routing. A refused one is never offered to the
+router: it counts in `RunResult.client_attack_refused` or
+`honest_refused`, not in `offered`. An admitted attacker request takes its
+service time from the attacker's own stream and is routed like any task.
+`topology` lists every device with its address and ground truth, and every
+`route` carries the sender's `client_ip`. A run with no client attacker
+models no devices and records exactly what it did before v0.3.
 
 **Moving the built-in attacks changed nothing.** The Sybil and the blackhole
 were branches in the simulator's event loop until v0.3. They now run through
@@ -295,14 +348,82 @@ Settings: `on_s`, `off_s`, and the Sybil's `claimed_cpu`, `slowdown` and
 `rtt_ms`. The `onoff` scenario takes them from `SimConfig.onoff_on_s`,
 `SimConfig.onoff_off_s` and `SimConfig.sybil_*`.
 
+### Identity spoof
+
+**Module:** `attacks/spoof.py` · **Label:** `spoof` · **Author:** jv
+
+Once it turns, the device sends a request claiming another device's identity
+every `interval_s` seconds (default 2 s, the project's reporting period),
+from its own address. Its ordinary traffic as itself carries on throughout.
+The scenario's spoofer is `iot38` impersonating `iot1`, as in the final-year
+project's live configuration.
+
+It holds the fleet key. The project's PRESENT-80 key was shared by every
+device, so the spoofer's challenge response is always correct: the key proves
+membership of the fleet, not ownership of an identity. The simulator does not
+model the cipher for that reason. What stops the spoofer is the controller
+binding each device id to a source address, ported from the project's
+`IdentityBinding`, under one of two rules set by
+`SimConfig.identity_binding`:
+
+- **`roster`** (the default): each device id is provisioned to its own
+  address before the run. A claim from any other address is refused, whether
+  or not the real device has spoken yet. This is the project's fix after
+  live run 9.
+- **`tofu`**, trust on first use: the first address to claim an id is pinned
+  to it. A spoofer that claims an identity before its owner does gets it.
+
+```bash
+turncoat run --strategy zt_sdn --scenario spoof --seed 1 -o spoof.jsonl
+turncoat score spoof.jsonl
+```
+
+Under `roster`, every request it sends as `iot1` is refused at admission
+(61 of 61 on seed 1) and recorded as an `auth_denied` with kind `ip_pin`.
+The scorer names `iot38` `spoof` at its first attempt, 0 s after onset, on
+all 15 seeds tried (1 to 10, 1000 to 1004), hostile from the start and
+turning at 30 s, and mislabels no honest device. A refused spoof costs the
+fleet nothing: offered tasks, latencies and per-server load are identical to
+the `clean` run of the same seed for all five strategies. No server is ever
+quarantined, because none attacked; the spoofer is stopped before routing.
+
+Under `tofu` it depends on who speaks first. `iot1`'s first request falls
+0.05 to 1.88 s into the run across those seeds. Turning at 30 s, the spoofer
+is refused exactly as under `roster`. Hostile from the start, it claims
+`iot1` before `iot1` does on every seed: all its requests are admitted and
+routed as `iot1`'s, and the real `iot1` is locked out, 168 to 225 of its
+requests refused per run. This is live run 9, where `iot1`'s first handshake
+failed and `iot38` took the identity. Turning at 1 s, it still wins on 4 of
+the 15 seeds; at 2 s, on none.
+
+```bash
+turncoat run --scenario spoof --identity-binding tofu -o tofu.jsonl
+```
+
+Settings: `target`, `interval_s`, and `start_s`. The `spoof` scenario takes
+them from `SimConfig.spoof_attacker`, `spoof_target`, `spoof_interval_s` and
+`attack_start_s`. `--attack spoof,client=iotN,target=iotM,start=S` places one
+from the command line.
+
 ## Known limits
 
-- **Client-side attacks have no interface yet.** `ServerAttack` changes how a
-  server serves and reports. Flood and identity spoof are attacks by IoT
-  clients, and the simulator models arrivals as one Poisson stream with no
-  per-client identity or authentication. Those two need a client-side
-  counterpart to `ServerAttack` and per-client arrivals in the simulator
-  before they can run here.
+- **Flood has its interface but not its attack yet.** `ClientAttack` is the
+  client-side counterpart to `ServerAttack` that flood needs: a flood claims
+  its own identity and sends at a short, random interval. The simulator still
+  has no per-client rate tell to flag it; that arrives with the flood attack.
+- **A spoof that wins under `tofu` is blamed on its victim.** The refusals
+  come from the real `iot1`'s own address, so the scorer names `iot1`
+  `spoof` and misses `iot38`, which is never refused. The scorer keys on the
+  address that sent a refused request, which is right whenever the binding
+  holds. Pinned in `tests/attacks/test_spoof.py`.
+- **The cipher is not modelled.** Every enrolled device passes the
+  cryptographic check, because the project's key was fleet-wide. A device
+  without the key (`bad_credentials`, refused with kind `bad_response`) and
+  per-device keys, which would stop the spoof without any binding, are not
+  in the simulator.
+- **Arrivals are spread evenly over devices.** Each arrival comes from a
+  device chosen uniformly at random, so every device sends about 1.6 tasks a
+  second. The live devices reported on a fixed 2 s beat.
 - **No CPU-honesty check in the simulator.** The live controller compared a
   server's claimed load with its observed load. The simulator does not model
   that check, so a liar that stays fast, like the `FastLiar` above, is never
