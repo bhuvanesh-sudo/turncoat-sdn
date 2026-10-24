@@ -85,9 +85,12 @@ Simulates one seeded run and records it.
 | Option | Default | Meaning |
 |---|---|---|
 | `--strategy NAME` | `zt_sdn` | `random`, `round_robin`, `least_conn`, `no_trust` or `zt_sdn` (see [strategies.md](strategies.md)) |
-| `--scenario NAME` | `both` | `clean` (no attacker), `sybil`, `drop`, `both`, `grayhole` or `onoff` (see [simulator.md](simulator.md) and [attacks.md](attacks.md)) |
+| `--scenario NAME` | `both` | `clean` (no attacker), `sybil`, `drop`, `both`, `grayhole`, `onoff` or `spoof` (see [simulator.md](simulator.md) and [attacks.md](attacks.md)) |
 | `--seed N` | `1` | Fixes the workload and every random choice. Same seed, same file, byte for byte. |
 | `--duration SECONDS` | `120` | Simulated time |
+| `--attack SPEC` | none | Adds an attacker to the scenario's. Repeatable. See [Adding attackers](#adding-attackers). Since v0.3. |
+| `--onset SECONDS` | `0` | When the scenario's attackers, and any `--attack` without its own `start=`, turn. Since v0.3. |
+| `--identity-binding RULE` | `roster` | How the controller binds IoT device ids to addresses, in a run with a client attacker: `roster` (provisioned) or `tofu` (first claim wins). See [attacks.md](attacks.md#identity-spoof). Since v0.3. |
 | `-o`, `--output PATH` | `run.jsonl` | Where to write the recording. Folders are created; an existing file is overwritten. |
 | `-q`, `--quiet` | off | Print nothing unless something goes wrong |
 
@@ -98,6 +101,48 @@ service times, so two runs with one seed form a fair pair.
 
 `run` validates the file it wrote before reporting success. A recording that
 fails is a bug in the benchmark, and the command says so.
+
+In a run with a client attacker, `run` also reports the admission check:
+how many of the attackers' own requests it refused, and how many honest
+requests it refused because another address held the sender's identity (only
+possible under `tofu`).
+
+#### Adding attackers
+
+`--attack` takes an attack's name, then optional `key=value` settings,
+separated by commas:
+
+| Name | Attacker | Settings |
+|---|---|---|
+| `sybil`, `blackhole` (or `drop`), `grayhole`, `onoff` | A server | `node=srvN`: which server. Default: the highest-numbered one not already attacking. |
+| `spoof` | An IoT device claiming another's identity | `client=iotN`: the spoofer, default `iot38`. `target=iotN`: whom it claims to be, default `iot1`. |
+| Any | | `start=SECONDS`: its onset. Default: `--onset`, else 0. |
+
+Each `--attack` adds one attacker to the scenario's own, built exactly as the
+scenario of the same name builds it (the same `SimConfig` settings), so
+`--scenario clean --attack spoof` is the `spoof` scenario. Two attackers on
+the same server or device are refused, with exit status 2.
+
+```bash
+turncoat run --scenario clean --attack spoof,start=15 --attack sybil,node=srv3,start=30 -o mixed.jsonl
+turncoat score mixed.jsonl
+```
+
+```
+Attackers
+  iot38    spoof      named correctly as spoof
+           detected 0.0 s after onset
+           53 requests refused at admission
+  srv3     sybil      named correctly as sybil
+           detected 2.0 s after onset
+           flagged for quarantine 2.0 s after onset; no traffic after that
+
+Detection: 2 of 2 attackers named correctly, 1 flagged, 1 cut off; 0 of 46 honest subjects mislabelled, 0 flagged.
+Admission: 53 requests refused, 53 from attackers and 0 from honest devices.
+```
+
+A spoofer is stopped at admission, before routing, so it is never flagged
+for quarantine or cut off: those two counts are about servers.
 
 ### `turncoat validate`
 
@@ -136,11 +181,13 @@ What each number means:
 | Service | Completed, failed | `report` events: `success` against everything else, plus every denial |
 | Service | SLO violations | Failures, plus successes slower than the deadline |
 | Service | Latency, mean / p95 | `latency_ms` of successful reports |
-| Service | Routed to attackers | Share of `route` events whose `chosen` server is an attacker in the ground truth |
+| Service | Routed to attackers | Share of `route` events whose `chosen` server is an attacker in the ground truth, counted from that attacker's onset |
 | Attackers | Named correctly / right family / missed | The attack classifier's verdict, from `turncoat_sdn.scoring.attack_report` |
 | Attackers | Detected after onset | First correct label, minus the onset in the ground truth |
 | Attackers | Flagged for quarantine | First `quarantine` event, minus the onset |
 | Attackers | Traffic after that | `route` events to the server at or after its first `quarantine` |
+| Attackers | Refused at admission | An IoT client's `auth_denied` events, filed under the device that sent them (by `source_ip`), not the identity they claimed |
+| Admission | Refused from attackers, from honest devices | The same, summed over attacking and honest devices. Printed only for a recording with IoT clients. |
 
 The service totals count exactly what the simulator counts, so for a
 simulated run they equal its `RunResult` (a test checks every strategy and
@@ -148,7 +195,10 @@ scenario). The scorers themselves are described in [scoring.md](scoring.md).
 
 `--json` prints four keys: `recording` (the header), `service`, `detection`
 (the counts in the last line of the summary) and `subjects` (one row per
-server or device). Keys are sorted and floats rounded to 6 places, so the
+server or device). In a recording with IoT clients, each client's row also
+carries `refused_at_admission`, and `detection` carries `admission` with
+`refused`, `refused_attackers` and `refused_honest`. Recordings without
+clients keep exactly the v0.2 shape. Keys are sorted and floats rounded to 6 places, so the
 output of one seed is identical on every machine. That is what
 `tests/cli/golden_scores.json` pins.
 
@@ -169,6 +219,7 @@ output of one seed is identical on every machine. That is what
 | `__init__.py` | The top-level parser and `main`, the `turncoat` entry point |
 | `routers.py` | The five strategies as simulator routers, copied line for line from the final-year project's `evaluation/baseline.py` |
 | `run.py` | `record_run`, which joins the router, `SimTrustModel`, the latency tell and an `EventWriter` |
+| `attack_spec.py` | Parses `--attack` and places each attacker beside the scenario's, built by the scenario of the same name |
 | `validate.py` | A front end to `turncoat_sdn.events.validate` |
 | `score.py` | Service totals from events, then the NFR, availability and attack scorers |
 | `common.py` | The exit codes |
@@ -180,9 +231,10 @@ golden files from the final-year project, and they match to the last digit.
 
 ## Known limits
 
-- `run` covers the six built-in scenarios. The `--scenario` choices grow
-  with the attack catalogue in v0.3. There is no `--attack` or onset option
-  yet, so a delayed onset needs Python (see [attacks.md](attacks.md)).
+- `--attack` places attacks with the settings their scenario uses. To change
+  how one behaves (a grayhole's drop fraction, a spoofer's interval), use
+  Python and `SimConfig` (see [attacks.md](attacks.md#how-to-use-it)).
+- `flood` is not an `--attack` choice until the flood attack lands in v0.3.
 - The routers live in `cli/routers.py` because `turncoat_sdn.strategies`
   does not yet speak the simulator's router interface. When it does, the CLI
   should use it and this table should move.
