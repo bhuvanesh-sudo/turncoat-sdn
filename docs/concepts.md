@@ -180,9 +180,10 @@ easy to catch. One that has already earned a high score is the real test.
 
 ## Known limits
 
-- **Onset is not modelled yet.** The v0.1 simulator's attackers are hostile
-  from the first second. Configurable `start_s` arrives with the attack
-  interface in v0.3.
+- **Onset defaults to zero.** The built-in scenarios' attackers are hostile
+  from the first second unless `SimConfig(attack_start_s=...)` delays them, so
+  existing results stay comparable. [Attacks](attacks.md) shows how to set an
+  onset per attacker.
 - **The middle band is not simulated.** `trust_band` classifies nodes, but the
   simulator only distinguishes routable from quarantined. Rate limiting needs
   the live testbed's OpenFlow meters.

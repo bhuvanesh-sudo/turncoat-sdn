@@ -57,3 +57,46 @@ fits (Added, Changed, Fixed, Removed).
   stable `--json`. The CLI's routers reproduce both final-year golden files,
   rebuilt service totals equal the simulator's counts, and a golden-file test
   pins the scores of eight fixed-seed runs; `docs/cli.md` (jv).
+- Attack profile interface in `turncoat_sdn.attacks`: `ServerAttack` keeps a
+  server honest until its `start_s` onset, and the simulator's Sybil and
+  blackhole moved out of its event loop onto it as `Sybil` and `Blackhole`
+  with every golden number unchanged. `SimConfig.attack_start_s` delays a
+  scenario's attackers, `simulate(attacks=...)` places your own, each
+  attacker gets its own seeded random stream, and the `topology` event records
+  every onset; malicious traffic and isolation now count from the onset.
+  Tests, and `docs/attacks.md` with how to write an attack (ash).
+- Grayhole attack, `Grayhole` in `turncoat_sdn.attacks`: drops a configurable
+  fraction of tasks after its onset (`drop_fraction`, default 0.5), one seeded
+  draw per task; a `grayhole` scenario, also a `turncoat run --scenario`
+  choice, with `SimConfig.grayhole_drop_fraction`; tests that the fraction is
+  honoured, nothing drops before onset, recordings validate and the scorer
+  names it; its entry in `docs/attacks.md` (bv).
+- On-off attack, `OnOff` in `turncoat_sdn.attacks`: lies like the Sybil for
+  `on_s`, is honest for `off_s`, and repeats from its onset (default 10 s
+  each); an `onoff` scenario and `turncoat run --scenario` choice with
+  `SimConfig.onoff_on_s` and `onoff_off_s`; tests of phase timing, onset,
+  pairing, recording and that the scorer names it, with the phase lengths
+  where it stops; its entry in `docs/attacks.md` (arj's task, written by bv).
+- Identity spoof, `IdentitySpoof` in `turncoat_sdn.attacks`, on a new
+  `ClientAttack` interface for attacks by IoT devices: from its onset a
+  device claims another's identity from its own address every 2 s. Runs with
+  a client attacker model the 40 IoT devices and the controller's admission
+  check, ported from the project's `IdentityBinding` with a `roster` or
+  `tofu` rule (`SimConfig.identity_binding`); refusals are recorded as
+  `auth_denied`, and runs without one are unchanged. A `spoof` scenario
+  (`iot38` as `iot1`), `simulate(client_attacks=...)`, and tests that the
+  roster refuses it at any onset and costs the fleet nothing, that `tofu`
+  reproduces live run 9, and that the scorer names it `spoof`; its entry in
+  `docs/attacks.md` (jv).
+- `turncoat run --attack SPEC` adds attackers beside the scenario's
+  (`spoof,client=iot38,target=iot1,start=15`, `sybil,node=srv3`), `--onset`
+  delays them, and `--identity-binding` picks the admission rule; `run`
+  reports admission refusals, and `score` reports each IoT client's refused
+  requests and an admission total; `docs/cli.md` (jv).
+
+### Fixed
+
+- `turncoat score` counted traffic to an attacking server from the start of
+  the run; "Routed to attackers" now counts from each attacker's onset, and
+  equals the simulator's `malicious_share`. Runs with an onset of 0 are
+  unchanged (jv).

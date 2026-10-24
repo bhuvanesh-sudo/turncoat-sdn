@@ -10,8 +10,20 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-#: The built-in attack scenarios, in reporting order.
-SCENARIOS: tuple[str, ...] = ("clean", "sybil", "drop", "both")
+from turncoat_sdn.attacks import (
+    Blackhole,
+    ClientAttack,
+    Grayhole,
+    IdentitySpoof,
+    OnOff,
+    ServerAttack,
+    Sybil,
+)
+
+#: The built-in attack scenarios, in reporting order. ``grayhole``, ``onoff``
+#: and ``spoof`` arrived in v0.3, after the final-year project's four, so they
+#: report last.
+SCENARIOS: tuple[str, ...] = ("clean", "sybil", "drop", "both", "grayhole", "onoff", "spoof")
 
 # Offsets that give each random stream its own seed. Changing any of them
 # changes every simulated number, so they are part of the golden contract.
@@ -19,6 +31,16 @@ ARRIVAL_SEED_OFFSET = 0
 SERVICE_SEED_OFFSET = 17
 JITTER_SEED_OFFSET = 43
 SELECTION_SEED_OFFSET = 99
+#: Attacker at node index ``i`` draws from ``seed + ATTACK_SEED_OFFSET + i``.
+#: Its own stream, so an attack that draws random numbers never shifts the
+#: workload the strategies are paired on.
+ATTACK_SEED_OFFSET = 211
+#: Which client sends each arrival, in a run with IoT clients. Its own stream,
+#: so attributing arrivals to clients moves nothing else.
+CLIENT_SEED_OFFSET = 157
+#: Client attacker ``j`` draws from ``seed + CLIENT_ATTACK_SEED_OFFSET + j``,
+#: clear of the server attackers' streams for fleets of up to 96 servers.
+CLIENT_ATTACK_SEED_OFFSET = 307
 
 
 @dataclass(frozen=True)
@@ -86,6 +108,50 @@ class SimConfig:
     """
     sybil_rtt_ms: float = 220.0
     """How slowly the Sybil answers ``/status``. This is the latency tell."""
+    grayhole_drop_fraction: float = 0.5
+    """Share of the tasks it accepts that the grayhole drops once it turns.
+
+    The observed timeout rate runs higher, about 0.6, because a dropped task
+    holds its worker until the client gives up and the backlog behind it waits.
+    Much past 0.7 the classifier starts calling it a blackhole.
+    """
+    onoff_on_s: float = 10.0
+    """Length of each hostile phase of the on-off attacker, which lies like the Sybil."""
+    onoff_off_s: float = 10.0
+    """Length of each honest phase between them.
+
+    Keep it at 3 s or more: the classifier needs a few clean polls to see the
+    attacker go quiet, and a shorter honest phase is labelled ``sybil``.
+    """
+    attack_start_s: float = 0.0
+    """Onset of the scenario's built-in attackers, in simulated seconds.
+
+    Before it they behave honestly; 0.0 makes them hostile from the start, as
+    in the final-year project. It does not apply to attackers passed to
+    :func:`~turncoat_sdn.sim.simulate` as ``attacks`` or ``client_attacks``,
+    which carry their own.
+    """
+
+    # --- IoT clients and admission (only in a run with a client attacker) --
+    n_clients: int = 40
+    """IoT devices sending the work, ``iot1`` to ``iot40`` as in the project.
+
+    A run with no client attacker has no clients: one anonymous arrival stream
+    and no admission check, exactly as before v0.3.
+    """
+    identity_binding: str = "roster"
+    """How the controller binds device ids to addresses: ``roster`` or ``tofu``.
+
+    ``roster`` is the project's fix after live run 9; ``tofu`` gives an
+    unclaimed identity to whoever claims it first. See
+    :mod:`turncoat_sdn.sim.admission`.
+    """
+    spoof_attacker: int = 37
+    """Client index of the scenario's spoofer: ``iot38``, as in the project."""
+    spoof_target: int = 0
+    """Client index of the device it impersonates: ``iot1``, as in the project."""
+    spoof_interval_s: float = 2.0
+    """Seconds between the spoofer's requests as its target."""
 
     @property
     def capacity(self) -> float:
@@ -98,18 +164,68 @@ class SimConfig:
         return self.load_factor * self.capacity
 
 
-def malicious_roles(scenario: str, n_nodes: int) -> dict[int, str]:
-    """Return which node indices misbehave in ``scenario``, and how.
+def scenario_attacks(scenario: str, config: SimConfig | None = None) -> dict[int, ServerAttack]:
+    """Return the attackers ``scenario`` places, keyed by node index.
 
     Attackers sit at the end of the index range so they are never the node a
-    round-robin happens to start on.
+    round-robin happens to start on. Every one turns at
+    ``config.attack_start_s``.
     """
-    if scenario == "clean":
+    cfg = config or SimConfig()
+    n = cfg.n_nodes
+
+    def sybil() -> Sybil:
+        return Sybil(
+            cfg.attack_start_s,
+            claimed_cpu=cfg.sybil_claimed_cpu,
+            slowdown=cfg.sybil_slowdown,
+            rtt_ms=cfg.sybil_rtt_ms,
+        )
+
+    if scenario in ("clean", "spoof"):
         return {}
     if scenario == "sybil":
-        return {n_nodes - 1: "sybil"}
+        return {n - 1: sybil()}
     if scenario == "drop":
-        return {n_nodes - 1: "drop"}
+        return {n - 1: Blackhole(cfg.attack_start_s)}
     if scenario == "both":
-        return {n_nodes - 1: "sybil", n_nodes - 2: "drop"}
+        return {n - 1: sybil(), n - 2: Blackhole(cfg.attack_start_s)}
+    if scenario == "grayhole":
+        return {n - 1: Grayhole(cfg.attack_start_s, drop_fraction=cfg.grayhole_drop_fraction)}
+    if scenario == "onoff":
+        return {
+            n - 1: OnOff(
+                cfg.attack_start_s,
+                on_s=cfg.onoff_on_s,
+                off_s=cfg.onoff_off_s,
+                claimed_cpu=cfg.sybil_claimed_cpu,
+                slowdown=cfg.sybil_slowdown,
+                rtt_ms=cfg.sybil_rtt_ms,
+            )
+        }
     raise ValueError(f"unknown scenario {scenario!r}; expected one of {SCENARIOS}")
+
+
+def scenario_client_attacks(
+    scenario: str, config: SimConfig | None = None
+) -> dict[int, ClientAttack]:
+    """Return the client attackers ``scenario`` places, keyed by client index.
+
+    Only ``spoof`` has one so far. It turns at ``config.attack_start_s``.
+    """
+    cfg = config or SimConfig()
+    if scenario not in SCENARIOS:
+        raise ValueError(f"unknown scenario {scenario!r}; expected one of {SCENARIOS}")
+    if scenario == "spoof":
+        return {
+            cfg.spoof_attacker: IdentitySpoof(
+                cfg.attack_start_s, target=cfg.spoof_target, interval_s=cfg.spoof_interval_s
+            )
+        }
+    return {}
+
+
+def malicious_roles(scenario: str, n_nodes: int) -> dict[int, str]:
+    """Return which node indices misbehave in ``scenario``, and their attack labels."""
+    attacks = scenario_attacks(scenario, SimConfig(n_nodes=n_nodes))
+    return {i: attack.name for i, attack in attacks.items()}

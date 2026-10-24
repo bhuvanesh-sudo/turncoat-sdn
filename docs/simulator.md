@@ -1,6 +1,6 @@
 # The simulator
 
-**Owner:** bv · **Written in:** v0.1 · **Extended in:** v0.2 (recording to `events.jsonl`)
+**Owner:** bv · **Written in:** v0.1 · **Extended in:** v0.2 (recording to `events.jsonl`), v0.3 (attack profiles, grayhole, onoff and spoof scenarios, IoT clients)
 
 ## What it is
 
@@ -17,7 +17,7 @@ routing, trust and the latency tell are passed in as hooks.
 
 ## Why it exists
 
-Comparing five strategies on four scenarios over 30 seeds is 600 runs. That
+Comparing five strategies on six scenarios over 30 seeds is 900 runs. That
 takes minutes here and would take days on a live Mininet topology. A
 statistical claim needs that many repetitions, so the simulator is what makes
 the comparison possible at all.
@@ -145,10 +145,23 @@ Return `None` from the factory to skip recording a run.
 | `sybil` | last node lies, claiming 10% load while serving at half speed | It never fails a task, so trust alone cannot catch it. Only the latency tell can. |
 | `drop` | last node accepts tasks and never finishes them | Its tasks time out, so the timeout-rate tell catches it. |
 | `both` | the Sybil on the last node, the dropper on the one before | Both at once. |
+| `grayhole` | last node drops half the tasks it accepts and serves the rest | Its losses are partial, so it must be told apart from a blackhole. From v0.3. |
+| `onoff` | last node lies like the Sybil for 10 s, then is honest for 10 s, and repeats | Its honest phases win back its place, so flagging it once is not enough. From v0.3. |
+| `spoof` | IoT device `iot38` claims to be `iot1` every 2 s, from its own address | Its cryptography is correct, so only the controller's address binding stops it. From v0.3. |
 
 Attackers sit at the end of the index range so a round-robin never starts on
-one. In v0.3 these fixed scenarios become attack profiles with an onset time
-`start_s`.
+one. From v0.3 each attacker is an attack profile from `turncoat_sdn.attacks`
+(`Sybil`, `Blackhole`, `Grayhole`, `OnOff`) with an onset: `SimConfig(attack_start_s=30.0)` keeps a
+scenario's attackers honest for the first 30 s, and `simulate(...,
+attacks={7: Sybil(start_s=30.0)})` places your own. See
+[Attacks](attacks.md).
+
+A run with a client attacker (`spoof`, or `simulate(...,
+client_attacks={37: IdentitySpoof(target=0)})`) also models the 40 IoT
+devices: each arrival is attributed to one, from a random stream of its own,
+and every request passes the controller's admission check
+(`sim/admission.py`, rule `SimConfig.identity_binding`) before routing. Runs
+without one model no devices and record exactly what they did before.
 
 ### Hooks
 
@@ -214,7 +227,7 @@ the same id the trust model receives.
 
 | Event | Written when | Fields |
 |---|---|---|
-| `topology` | once, at `ts` 0 | every server with its ground-truth `attack` (`none`, `sybil` or `drop`) and, for attackers, `attack_start_s` 0.0; plus the run's `SimConfig` as `config` |
+| `topology` | once, at `ts` 0 | every server with its ground-truth `attack` (`none`, `sybil`, `drop`, or a custom attack's name) and, for attackers, its onset `attack_start_s`; plus the run's `SimConfig` as `config` |
 | `route` | a task is routed | `task` (1 for the first arrival), `chosen` |
 | `route_denied` | the router returns `None` | `reason` (`all candidates quarantined`), `task` |
 | `report` | a task completes or times out | `task`, `node`, `status` (`success` or `timeout`), `latency_ms` |
@@ -286,12 +299,16 @@ once `turncoat_sdn.trust` and `turncoat_sdn.strategies` land.
   two leaves the other two at 80% utilisation, and queueing eats the gain from
   isolation. The default of 8 nodes avoids this; results at 4 nodes measure the
   cliff, not the strategy.
-- **Fixed attackers.** v0.1 has the four built-in scenarios only, with
-  attackers hostile from the start. Delayed onset and the full attack catalogue
-  arrive in v0.3.
+- **Four built-in attacks.** The scenarios place a Sybil, a blackhole, a
+  grayhole and an on-off attacker, hostile from the start unless
+  `attack_start_s` delays them, and an identity spoof by an IoT device.
+  Flood, the other client attack, can use the same `ClientAttack` interface
+  but needs a per-client rate tell (see [Attacks](attacks.md)). `grayhole`,
+  `onoff` and `spoof` report after the final-year project's four scenarios,
+  so their order, and every golden number, is unchanged.
 - **Recordings are large.** A default 120 s run is about 15,500 lines and
-  1.5 MB, almost all of it `route` and `report`. 600 paired runs is close to
-  a gigabyte, so record the runs you want to score, not every run by default.
+  1.5 MB, almost all of it `route` and `report`. 900 paired runs is over a
+  gigabyte, so record the runs you want to score, not every run by default.
 - **Quarantine is the controller's view, not the router's.** `quarantine`
   marks when the exclusion rails would hold a node out, the same test
   `time_to_isolate_s` uses. A trust-blind strategy such as round-robin keeps

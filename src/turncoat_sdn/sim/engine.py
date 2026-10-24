@@ -8,6 +8,18 @@ From v0.2 a run can also be recorded: pass a ``recorder`` and every routing
 decision, task outcome and poll is written to it in the shared
 ``events.jsonl`` format. Recording draws no random numbers, so a recorded run
 returns the same metrics as an unrecorded one.
+
+From v0.3 attackers are :class:`turncoat_sdn.attacks.ServerAttack` objects
+rather than branches in the loop. The loop asks each one how it serves a task
+and what it reports at a poll, and the attack decides, honestly before its
+``start_s`` and hostile after.
+
+Also from v0.3, a run with a client attacker (a
+:class:`turncoat_sdn.attacks.ClientAttack`) models the IoT devices: every
+arrival comes from one of ``n_clients`` devices, and the controller's admission
+check (:mod:`turncoat_sdn.sim.admission`) admits or refuses each request before
+routing sees it. A run without one has no devices and no admission check, and
+draws, routes and records exactly what it did before.
 """
 
 from __future__ import annotations
@@ -20,14 +32,20 @@ from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import asdict
 from typing import Any
 
+from turncoat_sdn.attacks import ClientAttack, IdentitySpoof, ServerAttack, Status
+from turncoat_sdn.sim.admission import BINDINGS, IdentityBinding, client_id, client_ip
 from turncoat_sdn.sim.config import (
     ARRIVAL_SEED_OFFSET,
+    ATTACK_SEED_OFFSET,
+    CLIENT_ATTACK_SEED_OFFSET,
+    CLIENT_SEED_OFFSET,
     JITTER_SEED_OFFSET,
     SCENARIOS,
     SELECTION_SEED_OFFSET,
     SERVICE_SEED_OFFSET,
     SimConfig,
-    malicious_roles,
+    scenario_attacks,
+    scenario_client_attacks,
 )
 from turncoat_sdn.sim.hooks import (
     LatencyTell,
@@ -69,15 +87,59 @@ def _ts(t: float) -> float:
     return round(t, 6)
 
 
-def _topology(cfg: SimConfig, roles: Mapping[int, str]) -> dict[str, Any]:
-    """The roster and ground truth: every attacker is hostile from the start."""
+def _topology(
+    cfg: SimConfig,
+    attackers: Mapping[int, ServerAttack],
+    client_attackers: Mapping[int, ClientAttack],
+) -> dict[str, Any]:
+    """The roster and ground truth: each attacker's label and onset.
+
+    IoT devices are listed only in a run that models them, one with a client
+    attacker, so every other recording is unchanged.
+    """
     nodes: list[dict[str, Any]] = []
     for i in range(cfg.n_nodes):
-        node: dict[str, Any] = {"id": node_id(i), "kind": "server", "attack": roles.get(i, "none")}
-        if i in roles:
-            node["attack_start_s"] = 0.0
+        node: dict[str, Any] = {"id": node_id(i), "kind": "server", "attack": "none"}
+        if i in attackers:
+            node.update(attackers[i].ground_truth())
         nodes.append(node)
+    if client_attackers:
+        for j in range(cfg.n_clients):
+            device: dict[str, Any] = {
+                "id": client_id(j),
+                "kind": "iot",
+                "ip": client_ip(j),
+                "attack": "none",
+            }
+            if j in client_attackers:
+                device.update(client_attackers[j].ground_truth())
+            nodes.append(device)
     return {"nodes": nodes, "links": []}
+
+
+def _check_attacks(attacks: Mapping[int, ServerAttack], n_nodes: int) -> dict[int, ServerAttack]:
+    for i, attack in attacks.items():
+        if isinstance(i, bool) or not isinstance(i, int) or not 0 <= i < n_nodes:
+            raise ValueError(f"attack node index {i!r} is not in range(0, {n_nodes})")
+        if not isinstance(attack, ServerAttack):
+            raise TypeError(f"attack at node {i} must be a ServerAttack, got {attack!r}")
+    return dict(attacks)
+
+
+def _check_client_attacks(
+    attacks: Mapping[int, ClientAttack], n_clients: int
+) -> dict[int, ClientAttack]:
+    for j, attack in attacks.items():
+        if isinstance(j, bool) or not isinstance(j, int) or not 0 <= j < n_clients:
+            raise ValueError(f"client attack index {j!r} is not in range(0, {n_clients})")
+        if not isinstance(attack, ClientAttack):
+            raise TypeError(f"attack at client {j} must be a ClientAttack, got {attack!r}")
+        if isinstance(attack, IdentitySpoof):
+            if not attack.target < n_clients:
+                raise ValueError(f"spoof target {attack.target} is not in range(0, {n_clients})")
+            if attack.target == j:
+                raise ValueError(f"client {j} cannot spoof its own identity")
+    return dict(attacks)
 
 
 def simulate(
@@ -90,12 +152,16 @@ def simulate(
     latency_tell: LatencyTell | None = None,
     name: str | None = None,
     recorder: Recorder | None = None,
+    attacks: Mapping[int, ServerAttack] | None = None,
+    client_attacks: Mapping[int, ClientAttack] | None = None,
 ) -> RunResult:
     """Run one seeded simulation and return its metrics.
 
     Args:
         router: Builds the routing strategy for this run.
-        scenario: One of :data:`~turncoat_sdn.sim.config.SCENARIOS`.
+        scenario: One of :data:`~turncoat_sdn.sim.config.SCENARIOS`. Places
+            the run's attackers unless ``attacks`` is given; it is also the
+            run's label.
         seed: Fixes the arrival stream, service demands, RTT jitter and the
             router's random stream.
         config: Fleet, workload and attacker settings. Defaults to
@@ -110,6 +176,14 @@ def simulate(
             the ``topology``. Pass an open
             :class:`turncoat_sdn.events.EventWriter`, which has already
             written the ``header``. The caller closes it.
+        attacks: The attackers, by node index, in place of the scenario's.
+            Each is a :class:`turncoat_sdn.attacks.ServerAttack` with its own
+            onset. ``{}`` runs with no server attacker.
+        client_attacks: The client attackers, by client index (0 is
+            ``iot1``), in place of the scenario's. Each is a
+            :class:`turncoat_sdn.attacks.ClientAttack`. Any client attacker
+            turns on the IoT devices and the admission check for the run.
+            ``{}`` runs with no client attacker.
 
     The same seed hands every strategy an identical workload. Each kind of draw
     has its own :class:`random.Random`, so the k-th arrival carries the same
@@ -118,12 +192,33 @@ def simulate(
     """
     cfg = config or SimConfig()
     n = cfg.n_nodes
-    roles = malicious_roles(scenario, n)
+    if attacks is None:
+        attackers = scenario_attacks(scenario, cfg)
+    else:
+        attackers = _check_attacks(attacks, n)
+    if cfg.identity_binding not in BINDINGS:
+        raise ValueError(
+            f"identity_binding must be one of {BINDINGS}, got {cfg.identity_binding!r}"
+        )
+    client_attackers = _check_client_attacks(
+        scenario_client_attacks(scenario, cfg) if client_attacks is None else client_attacks,
+        cfg.n_clients,
+    )
+    clients_on = bool(client_attackers)
 
     arr_rng = random.Random(seed + ARRIVAL_SEED_OFFSET)  # interarrival times
     svc_rng = random.Random(seed + SERVICE_SEED_OFFSET)  # service demands
     jit_rng = random.Random(seed + JITTER_SEED_OFFSET)  # /status RTT jitter
     sel_rng = random.Random(seed + SELECTION_SEED_OFFSET)  # routing decisions
+    # One stream per attacker, for attacks that draw (a grayhole's drops).
+    atk_rng = {i: random.Random(seed + ATTACK_SEED_OFFSET + i) for i in attackers}
+    # Only a run with IoT clients draws these, from streams of their own.
+    cli_rng = random.Random(seed + CLIENT_SEED_OFFSET)  # which device sends each arrival
+    catk_rng = {j: random.Random(seed + CLIENT_ATTACK_SEED_OFFSET + j) for j in client_attackers}
+    binding = IdentityBinding(
+        cfg.identity_binding,
+        roster={client_id(j): client_ip(j) for j in range(cfg.n_clients)},
+    )
     chooser = router(n, sel_rng)
     model = trust() if trust is not None else None
 
@@ -159,7 +254,9 @@ def simulate(
     # writes ``quarantine`` and ``recovered`` on the edges only.
     excluded = [False] * n
     if rec is not None:
-        rec.write("topology", 0.0, graph=_topology(cfg, roles), config=asdict(cfg))
+        rec.write(
+            "topology", 0.0, graph=_topology(cfg, attackers, client_attackers), config=asdict(cfg)
+        )
 
     def is_excluded(i: int) -> bool:
         """Whether the isolation threshold or the anomaly gate holds node ``i`` out."""
@@ -168,17 +265,55 @@ def simulate(
     def begin_service(i: int, task: _Task, now: float) -> None:
         """Occupy a worker on node ``i`` with ``task``."""
         busy[i] += 1
-        if roles.get(i) == "drop":
+        demand = task[1]
+        attack = attackers.get(i)
+        if attack is not None:
+            service = attack.service_time(now, demand, atk_rng[i])
+        else:
+            service = demand
+        if service is None:
             # Accepts the task, holds the worker, and never finishes it.
             heapq.heappush(evq, (now + cfg.task_timeout_s, next(counter), "timeout", i, task))
         else:
-            demand = task[1]
-            if roles.get(i) == "sybil":
-                demand *= cfg.sybil_slowdown
-            heapq.heappush(evq, (now + demand, next(counter), "dep", i, task))
+            heapq.heappush(evq, (now + service, next(counter), "dep", i, task))
+
+    def dispatch(now: float, demand: float, source_ip: str | None) -> None:
+        """Offer an admitted task to the router, then serve or queue it."""
+        result.offered += 1
+        task_id = result.offered
+        i = chooser.choose(trust_scores, claimed_cpu, rtt_ms, anomaly)
+        sender = {"client_ip": source_ip} if source_ip is not None else {}
+
+        if i is None:
+            # Every node quarantined: deny by default. It counts against
+            # the strategy, so isolating the whole fleet is never free.
+            result.failed += 1
+            result.slo_violations += 1
+            if rec is not None:
+                rec.write("route_denied", _ts(now), reason=DENIED_REASON, task=task_id, **sender)
+            return
+
+        result.served[i] += 1
+        if i in attackers and attackers[i].active(now):
+            result.malicious_tasks += 1
+        if rec is not None:
+            rec.write("route", _ts(now), task=task_id, chosen=node_id(i), **sender)
+
+        arriving = (now, demand, task_id)
+        if busy[i] < cfg.concurrency:
+            begin_service(i, arriving, now)
+        else:
+            backlog[i].append(arriving)
+
+    def refuse(now: float, device: str, source_ip: str, denial: str) -> None:
+        """Record a request the admission check turned away before routing."""
+        if rec is not None:
+            rec.write("auth_denied", _ts(now), device_id=device, source_ip=source_ip, kind=denial)
 
     heapq.heappush(evq, (arr_rng.expovariate(lam), next(counter), "arr", -1, None))
     heapq.heappush(evq, (cfg.poll_s, next(counter), "poll", -1, None))
+    for j, client_attack in client_attackers.items():
+        heapq.heappush(evq, (client_attack.first_request_s(), next(counter), "cli", j, None))
 
     while evq:
         now, _, kind, node, task = heapq.heappop(evq)
@@ -189,13 +324,12 @@ def simulate(
             # What each node reports, and how fast it answers.
             for i in range(n):
                 jitter = jit_rng.uniform(-cfg.rtt_jitter_ms, cfg.rtt_jitter_ms)
-                if roles.get(i) == "sybil":
-                    claimed_cpu[i] = cfg.sybil_claimed_cpu
-                    rtt_ms[i] = cfg.sybil_rtt_ms + jitter
-                else:
-                    inflight = busy[i] + len(backlog[i])
-                    claimed_cpu[i] = min(1.0, inflight / cfg.concurrency)
-                    rtt_ms[i] = cfg.base_rtt_ms + jitter
+                inflight = busy[i] + len(backlog[i])
+                reported = Status(min(1.0, inflight / cfg.concurrency), cfg.base_rtt_ms + jitter)
+                attack = attackers.get(i)
+                if attack is not None:
+                    reported = attack.status(now, reported, jitter, atk_rng[i])
+                claimed_cpu[i], rtt_ms[i] = reported
 
             # The controller's anomaly detection: two independent tells that
             # catch different attackers. The latency tell catches the Sybil
@@ -242,8 +376,10 @@ def simulate(
                     )
 
             # First moment every attacker is excluded from routing.
-            if roles and result.time_to_isolate_s is None:
-                if all(is_excluded(i) for i in roles):
+            # A turncoat only counts once it has turned: excluding it before its
+            # onset is not catching it.
+            if attackers and result.time_to_isolate_s is None:
+                if all(a.active(now) and is_excluded(i) for i, a in attackers.items()):
                     result.time_to_isolate_s = now
 
             if rec is not None:
@@ -280,34 +416,45 @@ def simulate(
             continue
 
         if kind == "arr":
-            result.offered += 1
             # Drawn here, from its own stream, so the k-th arrival carries the
             # same service demand whichever strategy routes it.
             demand = svc_rng.expovariate(1 / cfg.service_mean_s)
-            i = chooser.choose(trust_scores, claimed_cpu, rtt_ms, anomaly)
+            # Choosing a node schedules nothing, so pushing the next arrival
+            # before it keeps every event's tiebreak counter what it was.
             heapq.heappush(evq, (now + arr_rng.expovariate(lam), next(counter), "arr", -1, None))
-            task_id = result.offered
+            source = None
+            if clients_on:
+                # Every arrival is some device's ordinary traffic, sent as itself.
+                sender_j = cli_rng.randrange(cfg.n_clients)
+                device, source = client_id(sender_j), client_ip(sender_j)
+                denial = binding.admit(device, source)
+                if denial is not None:
+                    # Only under tofu, once a spoofer owns this device's identity.
+                    result.honest_refused += 1
+                    refuse(now, device, source, denial)
+                    continue
+            dispatch(now, demand, source)
+            continue
 
-            if i is None:
-                # Every node quarantined: deny by default. It counts against
-                # the strategy, so isolating the whole fleet is never free.
-                result.failed += 1
-                result.slo_violations += 1
-                if rec is not None:
-                    rec.write("route_denied", _ts(now), reason=DENIED_REASON, task=task_id)
-                continue
-
-            result.served[i] += 1
-            if i in roles:
-                result.malicious_tasks += 1
-            if rec is not None:
-                rec.write("route", _ts(now), task=task_id, chosen=node_id(i))
-
-            arriving = (now, demand, task_id)
-            if busy[i] < cfg.concurrency:
-                begin_service(i, arriving, now)
+        if kind == "cli":
+            # A request a client attacker sends of its own, from its own address.
+            attacker = client_attackers[node]
+            claimed = attacker.identity(node, now)
+            if isinstance(claimed, bool) or not isinstance(claimed, int):
+                raise TypeError(f"{attacker!r} claimed {claimed!r}, not a client index")
+            if not 0 <= claimed < cfg.n_clients:
+                raise ValueError(f"{attacker!r} claimed client {claimed}, not in the fleet")
+            source = client_ip(node)
+            result.client_attack_requests += 1
+            denial = binding.admit(client_id(claimed), source)
+            if denial is not None:
+                result.client_attack_refused += 1
+                refuse(now, client_id(claimed), source, denial)
             else:
-                backlog[i].append(arriving)
+                dispatch(now, catk_rng[node].expovariate(1 / cfg.service_mean_s), source)
+            following = attacker.next_request_s(now, catk_rng[node])
+            if following is not None:
+                heapq.heappush(evq, (following, next(counter), "cli", node, None))
             continue
 
         # Completion or timeout: update trust exactly as the live controller does.

@@ -13,6 +13,7 @@ from turncoat_sdn.cli.routers import STRATEGIES
 from turncoat_sdn.cli.run import record_run
 from turncoat_sdn.cli.score import (
     DEFAULT_SLO_MS,
+    attacker_share,
     recorded_slo_ms,
     routed_after,
     score_recording,
@@ -61,6 +62,18 @@ class TestServiceTotals:
         loose = score_recording(events)["service"]["slo_violation_rate"]
         tight = score_recording(events, slo_ms=50.0)["service"]["slo_violation_rate"]
         assert tight > loose
+
+
+class TestAttackerShare:
+    """Traffic counts against an attacker only once it has turned, as in the simulator."""
+
+    @pytest.mark.parametrize("strategy", list(STRATEGIES))
+    @pytest.mark.parametrize("scenario", SCENARIOS)
+    def test_equals_the_runs_malicious_share_with_an_onset(self, tmp_path, strategy, scenario):
+        config = replace(SHORT, attack_start_s=10.0)
+        path = tmp_path / "run.jsonl"
+        run = record_run(path, strategy=strategy, scenario=scenario, seed=7, config=config)
+        assert attacker_share(read_events(path)) == pytest.approx(run.malicious_share, abs=1e-12)
 
 
 class TestDetection:

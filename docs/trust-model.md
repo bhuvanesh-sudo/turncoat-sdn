@@ -177,8 +177,8 @@ Sybil out steadily.
 - **The floor is about a liar that stays fast.** The simulator's built-in
   Sybil doubles its service time, so it is a degrading liar and its trust does
   dip below 0.3 once a detector flags it. A liar that burns no visible latency
-  is the harder case. It needs an attack profile of its own, which fits the v0.3
-  attack interface.
+  is the harder case: `docs/attacks.md` writes one in ten lines, and `zt_sdn`
+  never isolates it.
 - **Weights are checked with `assert`.** `TrustCalculator` rejects weights
   that do not sum to 1.0 with an `AssertionError`, as in the original. Under
   `python -O` the check disappears.

@@ -5,9 +5,10 @@
 ## What you are installing
 
 The core package: the simulator, the strategies and trust model, the
-`events.jsonl` format with its validator, and the scorers. The attack library,
-statistics and the full `turncoat` command arrive in later releases. It is
-pure Python and depends only on NumPy and SciPy.
+`events.jsonl` format with its validator, the scorers, the attack library and
+the `turncoat run`, `validate` and `score` commands. Inferential statistics
+and `turncoat compare` arrive in v0.4. It is pure Python and depends only on
+NumPy and SciPy.
 
 The core never needs os-ken, Ryu, Mininet, root access or a virtual switch. It
 runs the same on Windows, macOS and Linux. An optional live testbed under
@@ -65,8 +66,9 @@ python -c "import turncoat_sdn.sim as s; print(s.SCENARIOS)"
 ```
 
 The first prints the version and the second prints
-`('clean', 'sybil', 'drop', 'both')`. To record a simulated run, validate it
-and score it, follow the [quick start in the README](README.md#quick-start-v02).
+`('clean', 'sybil', 'drop', 'both', 'grayhole', 'onoff', 'spoof')`. To record a
+simulated run, validate it and score it, follow the
+[quick start in the README](README.md#quick-start-v03).
 
 ## Install for development
 

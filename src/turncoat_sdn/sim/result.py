@@ -39,6 +39,17 @@ class RunResult:
     """Tasks routed to each node, by index."""
     time_to_isolate_s: float | None = None
     """First poll at which every attacker was excluded, or ``None`` if never."""
+    client_attack_requests: int = 0
+    """Requests client attackers sent of their own, admitted or not."""
+    client_attack_refused: int = 0
+    """Of those, how many the admission check refused before routing."""
+    honest_refused: int = 0
+    """Ordinary requests refused because another address owned the sender's identity.
+
+    Only ``tofu`` can do this, after a spoofer has claimed an identity first.
+    Refused requests never reach the router, so none of these three counts
+    is part of ``offered``.
+    """
 
     @property
     def failure_rate(self) -> float:
