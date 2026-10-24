@@ -13,7 +13,7 @@ attacks it is given.
 |---|---|---|---|---|---|
 | [Sybil](#sybil) | claims to be idle, serves slowly, answers polls slowly | It never fails a task, so its trust stays high | `sybil` | `attacks/sybil.py` | v0.3 (ash) |
 | [Blackhole](#blackhole) | accepts every task and drops it | Easy once it starts; the test is how fast | `drop` | `attacks/blackhole.py` | v0.3 (ash) |
-| Grayhole | drops a fraction of tasks | Its losses blend into normal failures | `grayhole` | | v0.3 (bv) |
+| [Grayhole](#grayhole) | accepts every task and drops a fraction of them | Its losses blend into normal failures | `grayhole` | `attacks/grayhole.py` | v0.3 (bv) |
 | On-off | alternates honest and malicious phases | Recovers its score in the honest phases | `onoff` | | v0.3 (arj) |
 | Flood | an IoT client sends far above its normal rate | Must be told apart from a busy client | `flood` | | v0.3 (arv) |
 | Identity spoof | an IoT client claims another device's identity | Looks like a legitimate device | `spoof` | | v0.3 (jv) |
@@ -220,6 +220,42 @@ Trust alone settles at about 0.36 for it, above the line, so the timeout-rate
 tell is what isolates it. Its label stays `drop`, the name every earlier
 recording used; the attack scorer reports it as `blackhole`.
 
+### Grayhole
+
+**Module:** `attacks/grayhole.py` · **Label:** `grayhole` · **Author:** bv
+
+Once it turns, it drops each task it accepts with probability
+`drop_fraction` (default 0.5). A dropped task holds its worker and never
+answers, so the client times out after 2 s, as with the blackhole. It serves
+every other task honestly, answers polls promptly and reports its load
+honestly. Whether a task is dropped is one draw per task from the attacker's
+own seeded stream, so a seed drops the same tasks every time and the paired
+workload never moves.
+
+The observed timeout rate runs above the fraction, about 0.6 at the default.
+Each dropped task holds a worker for the full timeout, so tasks queued behind
+it give up too. That rate sits between an honest node's and a blackhole's,
+which is what the classifier splits on: the timeout-rate tell fires above
+0.40, and a median rate under 0.85 is named `grayhole`, not `blackhole`.
+
+```bash
+turncoat run --strategy zt_sdn --scenario grayhole --seed 1 -o grayhole.jsonl
+turncoat score grayhole.jsonl
+```
+
+`zt_sdn` isolates it 3 s after onset on seed 1 and names it exactly. Over
+seeds 1 to 10 and 1000 to 1004 it isolates the grayhole on every seed. The
+scorer names it `grayhole` on 14 of 15 seeds when it is hostile from the start,
+and on 13 of 15 when it turns at 30 s; the misses are one `blackhole` and the
+abstentions under [Known limits](#known-limits). `round_robin` on seed 1 keeps
+sending it an eighth of all traffic, and 9.4% of all tasks fail against
+`zt_sdn`'s 0.07%.
+
+Settings: `drop_fraction`, taken in the `grayhole` scenario from
+`SimConfig.grayhole_drop_fraction`. Keep it between about 0.45 and 0.7 for
+the scorer to name it. Below that the tell fires only intermittently or not at
+all, and above it the median rate starts to reach the blackhole bar.
+
 ## Known limits
 
 - **Client-side attacks have no interface yet.** `ServerAttack` changes how a
@@ -236,6 +272,12 @@ recording used; the attack scorer reports it as `blackhole`.
   on-off if each honest phase lasts at least about 4 s
   (`ONOFF_MIN_GOOD_PHASE_S`) and the replay window spans two full periods.
   A faster on-off attacker is still caught, but it is labelled `sybil`.
+- **A grayhole contained by trust alone goes unnamed.** On some seeds
+  `zt_sdn`'s trust score falls below 0.3 before the timeout-rate tell has its
+  four outcomes. Quarantine then stops new outcomes, so no `anomaly` event is
+  ever recorded and the scorer abstains (`none`). It is contained, but
+  unlabelled: seed 3 turning at 30 s, pinned in `tests/attacks/test_grayhole.py`.
+  The simulator records no trust-collapse signal the classifier could use.
 - **A late blackhole is often labelled a grayhole.** See
   [Why it exists](#why-it-exists): `zt_sdn` contains it before its timeout
   rate reaches the blackhole bar. The family is right; the exact label is not.
