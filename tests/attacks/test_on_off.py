@@ -127,7 +127,7 @@ class TestProfile:
 
 class TestScenario:
     def test_is_a_built_in_scenario(self):
-        assert SCENARIOS[-2:] == ("grayhole", "onoff")
+        assert SCENARIOS[4:6] == ("grayhole", "onoff")  # v0.3 attacks follow the FYP four
         assert SCENARIOS[:4] == ("clean", "sybil", "drop", "both")  # FYP order kept
 
     def test_takes_its_settings_from_the_config(self):
