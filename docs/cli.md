@@ -85,7 +85,7 @@ Simulates one seeded run and records it.
 | Option | Default | Meaning |
 |---|---|---|
 | `--strategy NAME` | `zt_sdn` | `random`, `round_robin`, `least_conn`, `no_trust` or `zt_sdn` (see [strategies.md](strategies.md)) |
-| `--scenario NAME` | `both` | `clean` (no attacker), `sybil`, `drop`, `both` or `grayhole` (see [simulator.md](simulator.md) and [attacks.md](attacks.md)) |
+| `--scenario NAME` | `both` | `clean` (no attacker), `sybil`, `drop`, `both`, `grayhole` or `onoff` (see [simulator.md](simulator.md) and [attacks.md](attacks.md)) |
 | `--seed N` | `1` | Fixes the workload and every random choice. Same seed, same file, byte for byte. |
 | `--duration SECONDS` | `120` | Simulated time |
 | `-o`, `--output PATH` | `run.jsonl` | Where to write the recording. Folders are created; an existing file is overwritten. |
@@ -180,7 +180,7 @@ golden files from the final-year project, and they match to the last digit.
 
 ## Known limits
 
-- `run` covers the five built-in scenarios. The `--scenario` choices grow
+- `run` covers the six built-in scenarios. The `--scenario` choices grow
   with the attack catalogue in v0.3. There is no `--attack` or onset option
   yet, so a delayed onset needs Python (see [attacks.md](attacks.md)).
 - The routers live in `cli/routers.py` because `turncoat_sdn.strategies`

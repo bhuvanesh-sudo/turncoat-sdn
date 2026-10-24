@@ -11,8 +11,8 @@
 > five strategies and the trust model run on a plain laptop, every run records
 > to the shared `events.jsonl` format, and `turncoat run`, `validate` and
 > `score` grade it. v0.3 adds the attack catalogue: every attack is a profile
-> with its own onset `start_s`, and sybil, blackhole and grayhole run and are
-> scored today. See the [release plan](#release-plan).
+> with its own onset `start_s`, and sybil, blackhole, grayhole and on-off run
+> and are scored today. See the [release plan](#release-plan).
 
 ---
 
@@ -63,7 +63,7 @@ scorers --> statistics --> report
 | **Strategies and trust model** | `random`, `round_robin`, `least_conn`, `no_trust` and `zt_sdn`, plus the trust calculator, EdgeScore selector, isolation threshold and anomaly gate. | v0.1 |
 | **Event format** | One JSON object per line, covering every routing decision, outcome, classification and quarantine, plus the ground truth. Versioned, with a validator. | v0.2 |
 | **Scorers** | Detection accuracy and latency with a confusion matrix, availability, NFR and interval metrics. | v0.2 |
-| **Attack library** | Six hostile behaviours: sybil, blackhole, grayhole, on-off, flood and identity spoof. Each has a configurable onset `start_s`. | v0.3; sybil, blackhole and grayhole are in |
+| **Attack library** | Six hostile behaviours: sybil, blackhole, grayhole, on-off, flood and identity spoof. Each has a configurable onset `start_s`. | v0.3; sybil, blackhole, grayhole and on-off are in |
 | **Statistics** | Paired Wilcoxon tests with Holm correction and bootstrap CIs. | v0.4; descriptive summaries and a strategy benchmark runner from v0.3 |
 
 ## The attack catalogue
@@ -77,7 +77,7 @@ ground truth the scorer checks its verdict against.
 | Sybil | claims to be idle, serves slowly, answers polls slowly | `sybil` | `sybil`, `both` | in (ash) |
 | Blackhole | accepts every task and drops it | `drop` | `drop`, `both` | in (ash) |
 | Grayhole | accepts every task and drops a fraction of them | `grayhole` | `grayhole` | in (bv) |
-| On-off | alternates honest and malicious phases | `onoff` | | v0.3 (arj) |
+| On-off | alternates Sybil phases with honest ones | `onoff` | `onoff` | in (arj) |
 | Flood | an IoT client sends far above its normal rate | `flood` | | v0.3 (arv) |
 | Identity spoof | an IoT client claims another device's identity | `spoof` | | v0.3 (jv) |
 
@@ -134,7 +134,8 @@ The grayhole is named, not mistaken for a blackhole, and cut off three
 seconds after it starts. Run the same seed with `--strategy round_robin` and
 the controller still flags it, but nothing acts on it: an eighth of all
 traffic keeps landing on it and 9.4% of all tasks fail. `--scenario both` runs
-a Sybil and a blackhole together. Every command and option is in
+a Sybil and a blackhole together, and `--scenario onoff` a Sybil that keeps
+going honest to win back its place. Every command and option is in
 [docs/cli.md](docs/cli.md).
 
 To make an attacker turn later, give it an onset. From Python,
@@ -145,11 +146,10 @@ onset is written into the recording and detection is measured from it (see
 
 ### Where this is going
 
-The rest of the catalogue arrives during v0.3 (`--scenario on-off` among
-them), and comparisons over many seeds in v0.4:
+Flood and identity spoof, the two client-side attacks, complete the
+catalogue during v0.3, and comparisons over many seeds arrive in v0.4:
 
 ```bash
-turncoat run --scenario on-off --strategy zt_sdn --seed 1 -o run.jsonl
 turncoat compare --strategies zt_sdn,least_conn --seeds 30
 ```
 

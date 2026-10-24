@@ -1,6 +1,6 @@
 # The simulator
 
-**Owner:** bv · **Written in:** v0.1 · **Extended in:** v0.2 (recording to `events.jsonl`), v0.3 (attack profiles, grayhole scenario)
+**Owner:** bv · **Written in:** v0.1 · **Extended in:** v0.2 (recording to `events.jsonl`), v0.3 (attack profiles, grayhole and onoff scenarios)
 
 ## What it is
 
@@ -17,7 +17,7 @@ routing, trust and the latency tell are passed in as hooks.
 
 ## Why it exists
 
-Comparing five strategies on five scenarios over 30 seeds is 750 runs. That
+Comparing five strategies on six scenarios over 30 seeds is 900 runs. That
 takes minutes here and would take days on a live Mininet topology. A
 statistical claim needs that many repetitions, so the simulator is what makes
 the comparison possible at all.
@@ -146,10 +146,11 @@ Return `None` from the factory to skip recording a run.
 | `drop` | last node accepts tasks and never finishes them | Its tasks time out, so the timeout-rate tell catches it. |
 | `both` | the Sybil on the last node, the dropper on the one before | Both at once. |
 | `grayhole` | last node drops half the tasks it accepts and serves the rest | Its losses are partial, so it must be told apart from a blackhole. From v0.3. |
+| `onoff` | last node lies like the Sybil for 10 s, then is honest for 10 s, and repeats | Its honest phases win back its place, so flagging it once is not enough. From v0.3. |
 
 Attackers sit at the end of the index range so a round-robin never starts on
 one. From v0.3 each attacker is an attack profile from `turncoat_sdn.attacks`
-(`Sybil`, `Blackhole`, `Grayhole`) with an onset: `SimConfig(attack_start_s=30.0)` keeps a
+(`Sybil`, `Blackhole`, `Grayhole`, `OnOff`) with an onset: `SimConfig(attack_start_s=30.0)` keeps a
 scenario's attackers honest for the first 30 s, and `simulate(...,
 attacks={7: Sybil(start_s=30.0)})` places your own. See
 [Attacks](attacks.md).
@@ -290,13 +291,14 @@ once `turncoat_sdn.trust` and `turncoat_sdn.strategies` land.
   two leaves the other two at 80% utilisation, and queueing eats the gain from
   isolation. The default of 8 nodes avoids this; results at 4 nodes measure the
   cliff, not the strategy.
-- **Three built-in attacks.** The scenarios place a Sybil, a blackhole and a
-  grayhole, hostile from the start unless `attack_start_s` delays them. The
-  rest of the attack catalogue arrives during v0.3 (see [Attacks](attacks.md)).
-  `grayhole` reports after the final-year project's four scenarios, so their
+- **Four built-in attacks.** The scenarios place a Sybil, a blackhole, a
+  grayhole and an on-off attacker, hostile from the start unless
+  `attack_start_s` delays them. Flood and identity spoof, attacks by clients,
+  need per-client arrivals first (see [Attacks](attacks.md)). `grayhole` and
+  `onoff` report after the final-year project's four scenarios, so their
   order, and every golden number, is unchanged.
 - **Recordings are large.** A default 120 s run is about 15,500 lines and
-  1.5 MB, almost all of it `route` and `report`. 750 paired runs is over a
+  1.5 MB, almost all of it `route` and `report`. 900 paired runs is over a
   gigabyte, so record the runs you want to score, not every run by default.
 - **Quarantine is the controller's view, not the router's.** `quarantine`
   marks when the exclusion rails would hold a node out, the same test
