@@ -303,6 +303,69 @@ The schema is declared as data in `turncoat_sdn/events/schema.py`. The
 validator checks against those tables, and a test fails if a type or field
 there is missing from this page.
 
+### Results files
+
+A recording is one run. A comparison is many, and `turncoat replicate`
+writes them as one **results file**: a CSV with a header row and one row per
+run, every metric a column. `turncoat compare` and the statistics in
+[statistics.md](statistics.md) read it, and so can a spreadsheet. This
+section describes **results format 1.0**, `turncoat_sdn.stats.RESULTS_VERSION`.
+
+```bash
+turncoat replicate --strategies zt_sdn,round_robin --scenarios both --seeds 30 -o results.csv
+```
+
+```python
+from turncoat_sdn.stats import read_results, write_results
+
+rows = read_results("results.csv")  # typed: int counts, float rates, None for blanks
+write_results(rows, "copy.csv")  # the same file back
+```
+
+Columns, in order (`turncoat_sdn.stats.RESULTS_FIELDS`):
+
+| Column | Type | Blank when | Meaning |
+|---|---|---|---|
+| `strategy` | text | never | Strategy label, such as `zt_sdn` |
+| `scenario` | text | never | Scenario name, such as `both` |
+| `seed` | integer | never | The run's seed. The same seed gives every strategy the same workload. |
+| `offered` | integer | never | Tasks offered |
+| `completed` | integer | never | Tasks that finished |
+| `failed` | integer | never | Timed out, gave up in a backlog, or refused because every server was quarantined |
+| `slo_violation_rate` | float, 0 to 1 | never | Failures plus completions slower than the deadline, over offered |
+| `failure_rate` | float, 0 to 1 | never | `failed` over `offered` |
+| `malicious_share` | float, 0 to 1 | never | Share of tasks routed to an attacker after its onset |
+| `mean_latency_ms` | float | never | Mean latency of completed tasks |
+| `p95_latency_ms` | float | never | 95th-percentile latency of completed tasks |
+| `gini` | float, 0 to 1 | never | How unevenly tasks were spread over servers |
+| `time_to_isolate_s` | float | nothing was isolated | First poll at which every attacker had turned and was excluded |
+| `attackers` | integer | never | Attacking servers and devices in the ground truth |
+| `attackers_named` | integer | never | Of those, how many the attack scorer named with their exact label |
+| `detection_rate` | float, 0 to 1 | no attacker | `attackers_named` over `attackers` |
+| `mean_detection_latency_s` | float | no attacker named | Mean seconds from onset to the first correct label, over named attackers |
+| `honest_subjects` | integer | never | Honest servers and devices scored |
+| `honest_mislabelled` | integer | never | Of those, how many were given an attack label |
+| `false_positive_rate` | float, 0 to 1 | no honest subject | `honest_mislabelled` over `honest_subjects` |
+
+The first thirteen columns are the simulator's own row
+(`turncoat_sdn.sim.CSV_FIELDS`, written by `sim.write_csv`); a test keeps the
+two in step. The rest come from scoring the run's recording exactly as
+`turncoat score` does. A blank cell means the run could not measure that
+metric, never zero, and readers must skip it rather than average it in.
+Rates are rounded to 6 places and latencies to 3, so one seed gives the same
+file on every machine. Rows are ordered by scenario, then seed, then strategy.
+
+`--summary PATH` also writes the intervals `replicate` prints, one row per
+strategy, scenario and metric: `strategy`, `scenario`, `metric`, `runs`, `n`
+(runs that measured it), `mean`, `ci_low`, `ci_high`, `confidence` and
+`resamples`.
+
+**Versioning.** A minor version (`1.1`) may only add columns at the end; a
+reader looks columns up by name, and `read_results` keeps unknown trailing
+columns as text. A major version may rename, remove or retype a column, and
+`read_results` refuses a file whose header does not start with the 1.0
+columns.
+
 ### What changed from the final-year project
 
 | Final-year project | Schema 1.0 | Why |
@@ -324,5 +387,6 @@ there is missing from this page.
 - **Existing final-year recordings do not validate as they are.** They lack
   the header and use wall-clock `ts`. Converting them, and checking that a
   live run writes this schema directly, is the v1.0 live-recording task.
-- **Results files are not covered yet.** The per-run results CSV and its
-  columns are added to this page in v0.4.
+- **A results file carries no header line of its own.** Its version is
+  implied by its columns. A run's backend and config are not in it; keep the
+  command that produced it beside it, as [results.md](results.md) does.

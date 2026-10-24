@@ -12,6 +12,7 @@ the trust model, the event format and the scorers into one workflow:
 | `turncoat run` | Simulates one seeded run and records it to `events.jsonl` | v0.2 |
 | `turncoat validate` | Checks recordings against the event schema | v0.2 |
 | `turncoat score` | Grades a recording: who was caught, how fast, at what cost | v0.2 |
+| `turncoat replicate` | Runs many seeds per strategy and scenario into one results CSV, with a mean and confidence interval on every metric | v0.4 |
 | `turncoat compare` | Paired statistics over many seeds | v0.4 (planned) |
 
 ## Why it exists
@@ -202,6 +203,56 @@ clients keep exactly the v0.2 shape. Keys are sorted and floats rounded to 6 pla
 output of one seed is identical on every machine. That is what
 `tests/cli/golden_scores.json` pins.
 
+### `turncoat replicate`
+
+```bash
+turncoat replicate [--strategies LIST] [--scenarios LIST] [--seeds N] [--first-seed SEED]
+                   [--duration SECONDS] [--onset SECONDS] [-o PATH] [--summary PATH]
+                   [--confidence LEVEL] [--resamples N] [-q]
+```
+
+Runs every chosen strategy on every chosen scenario over the same seeds,
+scores each run, and writes one row per run to a results CSV. Then it prints
+every metric's mean for each strategy and scenario with a percentile-bootstrap
+confidence interval.
+
+| Option | Default | Meaning |
+|---|---|---|
+| `--strategies LIST` | all five | Comma-separated, such as `zt_sdn,least_conn` |
+| `--scenarios LIST` | all seven | Comma-separated, such as `both,grayhole` |
+| `--seeds N` | `30` | Seeds per strategy and scenario |
+| `--first-seed SEED` | `1` | Seeds run from here upward: `--seeds 30` is seeds 1 to 30 |
+| `--duration SECONDS` | `120` | Simulated time per run |
+| `--onset SECONDS` | `0` | When the scenarios' attackers turn |
+| `-o`, `--output PATH` | `results.csv` | The results file. Folders are created; an existing file is overwritten. |
+| `--summary PATH` | none | Also write every mean and interval to this CSV |
+| `--confidence LEVEL` | `0.95` | Coverage of the intervals |
+| `--resamples N` | `10000` | Bootstrap resamples per interval |
+| `-q`, `--quiet` | off | Print nothing unless something goes wrong |
+
+```
+$ turncoat replicate --scenarios grayhole --seeds 5 -o r.csv
+Ran 25 runs (5 strategies x 1 scenario x 5 seeds, 1 to 5) in 5 s
+Wrote r.csv (25 rows, results format 1.0)
+
+Mean over seeds, with 95% bootstrap confidence interval [low, high] (10,000 resamples)
+
+grayhole  (5 seeds per strategy)
+                                            random              round_robin               least_conn                 no_trust                   zt_sdn
+  SLO violations (%)          19.58 [19.29, 19.86]     19.13 [18.84, 19.35]     23.42 [21.40, 25.17]     13.18 [12.70, 13.61]      10.00 [9.67, 10.34]
+  Failed (%)                     9.27 [9.03, 9.51]        9.24 [8.94, 9.52]        3.95 [3.43, 4.47]        2.75 [2.61, 2.85]        0.10 [0.05, 0.15]
+  ...
+```
+
+Each run gets the controller view `turncoat run` gives it, and the same seed
+gives every strategy the same workload, so the rows are paired. Recordings
+are kept in memory and scored there, so a full default comparison (1,050
+runs) writes only the results and takes about three and a half minutes. The
+same arguments give the same file byte for byte. The columns are described
+in [event-format.md](event-format.md#results-files), the intervals in
+[statistics.md](statistics.md#confidence-intervals), and a full run in
+[results.md](results.md).
+
 ### Exit status
 
 | Code | Meaning |
@@ -222,6 +273,7 @@ output of one seed is identical on every machine. That is what
 | `attack_spec.py` | Parses `--attack` and places each attacker beside the scenario's, built by the scenario of the same name |
 | `validate.py` | A front end to `turncoat_sdn.events.validate` |
 | `score.py` | Service totals from events, then the NFR, availability and attack scorers |
+| `replicate.py` | `replicate_rows`, which runs and scores the paired grid into results rows, and the interval table |
 | `common.py` | The exit codes |
 
 The CLI is the one place allowed to wire packages together (see
@@ -238,7 +290,10 @@ golden files from the final-year project, and they match to the last digit.
 - The routers live in `cli/routers.py` because `turncoat_sdn.strategies`
   does not yet speak the simulator's router interface. When it does, the CLI
   should use it and this table should move.
-- `score` grades one recording. Comparing strategies over many seeds, with
-  p-values and confidence intervals, is `turncoat compare` in v0.4.
+- `score` grades one recording, and `replicate` puts intervals on many.
+  Paired p-values, with Holm correction, are `turncoat compare` in v0.4.
+- `replicate` takes no `--attack` or `--identity-binding`: it runs the
+  built-in scenarios as they are, so every row is a scenario anyone can
+  reproduce by name. It also runs one run at a time, on one core.
 - `--slo-ms` changes the deadline for scoring only. The simulator's own
   `slo_violation_rate` in the `run` summary always uses the recorded deadline.
