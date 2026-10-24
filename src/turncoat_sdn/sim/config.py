@@ -10,11 +10,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from turncoat_sdn.attacks import Blackhole, Grayhole, ServerAttack, Sybil
+from turncoat_sdn.attacks import Blackhole, Grayhole, OnOff, ServerAttack, Sybil
 
-#: The built-in attack scenarios, in reporting order. ``grayhole`` arrived in
-#: v0.3, after the final-year project's four, so it reports last.
-SCENARIOS: tuple[str, ...] = ("clean", "sybil", "drop", "both", "grayhole")
+#: The built-in attack scenarios, in reporting order. ``grayhole`` and
+#: ``onoff`` arrived in v0.3, after the final-year project's four, so they
+#: report last.
+SCENARIOS: tuple[str, ...] = ("clean", "sybil", "drop", "both", "grayhole", "onoff")
 
 # Offsets that give each random stream its own seed. Changing any of them
 # changes every simulated number, so they are part of the golden contract.
@@ -100,6 +101,14 @@ class SimConfig:
     holds its worker until the client gives up and the backlog behind it waits.
     Much past 0.7 the classifier starts calling it a blackhole.
     """
+    onoff_on_s: float = 10.0
+    """Length of each hostile phase of the on-off attacker, which lies like the Sybil."""
+    onoff_off_s: float = 10.0
+    """Length of each honest phase between them.
+
+    Keep it at 3 s or more: the classifier needs a few clean polls to see the
+    attacker go quiet, and a shorter honest phase is labelled ``sybil``.
+    """
     attack_start_s: float = 0.0
     """Onset of the scenario's built-in attackers, in simulated seconds.
 
@@ -147,6 +156,17 @@ def scenario_attacks(scenario: str, config: SimConfig | None = None) -> dict[int
         return {n - 1: sybil(), n - 2: Blackhole(cfg.attack_start_s)}
     if scenario == "grayhole":
         return {n - 1: Grayhole(cfg.attack_start_s, drop_fraction=cfg.grayhole_drop_fraction)}
+    if scenario == "onoff":
+        return {
+            n - 1: OnOff(
+                cfg.attack_start_s,
+                on_s=cfg.onoff_on_s,
+                off_s=cfg.onoff_off_s,
+                claimed_cpu=cfg.sybil_claimed_cpu,
+                slowdown=cfg.sybil_slowdown,
+                rtt_ms=cfg.sybil_rtt_ms,
+            )
+        }
     raise ValueError(f"unknown scenario {scenario!r}; expected one of {SCENARIOS}")
 
 

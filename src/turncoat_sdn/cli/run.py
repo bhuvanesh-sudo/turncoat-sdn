@@ -102,7 +102,8 @@ def add_parser(commands: argparse._SubParsersAction) -> argparse.ArgumentParser:
         choices=list(SCENARIOS),
         default=DEFAULT_SCENARIO,
         help=(
-            "which servers attack: none, a Sybil, a dropper, both, or a grayhole "
+            "which servers attack: none, a Sybil, a dropper, both, a grayhole or an "
+            "on-off Sybil "
             f"(default {DEFAULT_SCENARIO})"
         ),
     )
