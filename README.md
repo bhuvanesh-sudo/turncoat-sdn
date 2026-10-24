@@ -5,14 +5,15 @@
 [![CI](https://github.com/bhuvanesh-sudo/turncoat-sdn/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/bhuvanesh-sudo/turncoat-sdn/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](pyproject.toml)
-[![Status: v0.3 in progress](https://img.shields.io/badge/status-v0.3%20in%20progress-orange.svg)](CHANGELOG.md)
+[![Status: v0.4 in progress](https://img.shields.io/badge/status-v0.4%20in%20progress-orange.svg)](CHANGELOG.md)
 
-> **Status: v0.3 in progress.** v0.1 and v0.2 are merged: the simulator, the
+> **Status: v0.4 in progress.** v0.1 to v0.3 are merged: the simulator, the
 > five strategies and the trust model run on a plain laptop, every run records
-> to the shared `events.jsonl` format, and `turncoat run`, `validate` and
-> `score` grade it. v0.3 adds the attack catalogue: every attack is a profile
-> with its own onset `start_s`, and sybil, blackhole, grayhole, on-off and
-> identity spoof run and are scored today. See the [release plan](#release-plan).
+> to the shared `events.jsonl` format, `turncoat run`, `validate` and `score`
+> grade it, and the attack catalogue gives every attack its own onset
+> `start_s`. v0.4 adds statistics: `turncoat replicate` runs many paired seeds
+> into one results CSV and prints every metric with a 95% bootstrap confidence
+> interval. See the [release plan](#release-plan).
 
 ---
 
@@ -64,7 +65,7 @@ scorers --> statistics --> report
 | **Event format** | One JSON object per line, covering every routing decision, outcome, classification and quarantine, plus the ground truth. Versioned, with a validator. | v0.2 |
 | **Scorers** | Detection accuracy and latency with a confusion matrix, availability, NFR and interval metrics. | v0.2 |
 | **Attack library** | Six hostile behaviours: sybil, blackhole, grayhole, on-off, flood and identity spoof. Each has a configurable onset `start_s`. | v0.3; sybil, blackhole, grayhole, on-off and identity spoof are in |
-| **Statistics** | Paired Wilcoxon tests with Holm correction and bootstrap CIs. | v0.4; descriptive summaries and a strategy benchmark runner from v0.3 |
+| **Statistics** | A results CSV over many paired seeds, bootstrap CIs on every metric, paired Wilcoxon tests with Holm correction. | v0.4; results file and bootstrap CIs are in; descriptive summaries and a strategy benchmark runner from v0.3 |
 
 ## The attack catalogue
 
@@ -85,7 +86,7 @@ scorer checks its verdict against.
 How each one behaves, what catches it, and how to write your own are in
 [docs/attacks.md](docs/attacks.md).
 
-## Quick start (v0.3)
+## Quick start (v0.4)
 
 Install from source and run the test suite (full details in
 [INSTALL.md](INSTALL.md)):
@@ -148,10 +149,36 @@ your own beside them. From Python,
 onset is written into the recording and detection is measured from it (see
 [docs/attacks.md](docs/attacks.md#how-to-use-it)).
 
+### Many seeds, with confidence intervals
+
+One run is one seed. To compare strategies, run them all on the same 30
+seeds and put an interval on every mean:
+
+```bash
+turncoat replicate --scenarios both --seeds 30 -o results.csv
+```
+
+```
+Ran 150 runs (5 strategies x 1 scenario x 30 seeds, 1 to 30) in 31 s
+Wrote results.csv (150 rows, results format 1.0)
+
+Mean over seeds, with 95% bootstrap confidence interval [low, high] (10,000 resamples)
+
+both  (30 seeds per strategy)
+                                            random              round_robin               least_conn                 no_trust                   zt_sdn
+  SLO violations (%)          25.10 [24.79, 25.40]     23.36 [23.16, 23.57]     38.19 [37.24, 39.19]     17.05 [16.75, 17.37]     12.09 [11.85, 12.34]
+  Failed (%)                  12.16 [12.04, 12.27]     12.09 [12.08, 12.10]     12.48 [11.91, 13.05]        3.98 [3.90, 4.06]        0.10 [0.09, 0.12]
+  Routed to attackers (%)     25.02 [24.85, 25.17]     24.99 [24.99, 24.99]     15.34 [14.32, 16.34]     14.35 [14.19, 14.53]        0.36 [0.33, 0.39]
+  ...
+```
+
+`results.csv` has one row per run with every metric as a column, ready for
+a spreadsheet or for `turncoat compare`. The full seven-scenario comparison,
+and how to read it, is in [docs/results.md](docs/results.md).
+
 ### Where this is going
 
-Flood completes the catalogue during v0.3, and comparisons over many seeds
-arrive in v0.4:
+Paired tests arrive later in v0.4:
 
 ```bash
 turncoat compare --strategies zt_sdn,least_conn --seeds 30
@@ -163,8 +190,8 @@ turncoat compare --strategies zt_sdn,least_conn --seeds 30
 |---|---|---|
 | v0.1 | The simulator runs on its own | `pytest` passes on a clean machine with no os-ken; one simulated run completes |
 | v0.2 | One event format, scorers read it | `turncoat run` then `turncoat score` prints detection results |
-| **v0.3** | The full attack catalogue | All six attacks run and are scored, each with its onset visible |
-| v0.4 | Statistics people can trust | `turncoat compare` prints p-values and CIs over 30 seeds |
+| v0.3 | The full attack catalogue | All six attacks run and are scored, each with its onset visible |
+| **v0.4** | Statistics people can trust | `turncoat compare` prints p-values and CIs over 30 seeds |
 | v1.0 | Ready for others | A stranger follows this README from zero to a comparison table |
 
 ## Project layout
@@ -178,8 +205,8 @@ turncoat-sdn/
 |   |-- trust/        # trust calculator, edge selector, thresholds
 |   |-- events/       # schema, JSONL writer and reader, validator
 |   |-- scoring/      # attack, nfr, interval, availability, benchmark
-|   |-- stats/        # Wilcoxon + Holm, bootstrap CIs, aggregator
-|   `-- cli/          # turncoat run / validate / score (compare in v0.4)
+|   |-- stats/        # descriptive, bootstrap CIs, results file (Wilcoxon + Holm next)
+|   `-- cli/          # turncoat run / validate / score / replicate (compare next)
 |-- backends/mininet/ # optional live testbed (v1.0)
 |-- examples/         # custom scenario, strategy and attack (v1.0)
 |-- docs/             # documentation set
@@ -200,8 +227,12 @@ and ground truth. Then:
   it, and how to write a new one
 - [docs/cli.md](docs/cli.md): every `turncoat` command and option
 - [docs/scoring.md](docs/scoring.md): what each score means
-- [docs/benchmark-statistics.md](docs/benchmark-statistics.md): descriptive
-  summaries over repeated runs
+- [docs/statistics.md](docs/statistics.md): confidence intervals and paired
+  tests over many runs, and
+  [docs/benchmark-statistics.md](docs/benchmark-statistics.md) for
+  descriptive summaries
+- [docs/results.md](docs/results.md): a full comparison over 30 seeds, and how
+  to read it
 - [docs/strategies.md](docs/strategies.md) and
   [docs/trust-model.md](docs/trust-model.md): the baselines and the trust
   formula's blind spot

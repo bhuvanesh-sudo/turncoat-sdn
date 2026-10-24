@@ -33,6 +33,10 @@ sudo is needed. Tests that need the live backend must be marked
 | `attacks/test_onset.py` | Attacks in the simulator: passing them explicitly changes no number, onset is recorded in `topology`, turncoats are honest before it, malicious traffic and detection count from it, random attacks stay paired, and the late-blackhole result. |
 | `benchmark/test_benchmark_scoring.py`, `benchmark/test_comparison_report.py`, `benchmark/test_strategy_benchmark.py` | The v0.3 strategy benchmark: per-strategy summaries, comparison reports in CSV and JSON, and the reproducible runner. |
 | `stats/test_descriptive.py` | Descriptive statistics over repeated runs: mean, sample standard deviation, minimum, maximum and count. |
+| `stats/test_bootstrap.py` | Percentile-bootstrap intervals: the method against a direct numpy computation, seeding, paired resampling across groups, blanks, one run and agreeing runs, bad input, the opt-in interval on `summarize_metrics`, and 95% coverage on skewed data. |
+| `stats/test_replicates.py` | **The results file**: its columns start with the simulator's row, the detection columns, blanks for what a run cannot measure, and a writer and reader that round-trip with types. |
+| `cli/test_replicate.py` | `turncoat replicate`: one row per paired run equal to `run` then `score`, every metric printed with an interval, the summary CSV, the same file for the same arguments, `--onset`, usage errors, and that the strategy benchmark runs every scenario. |
+| `events/test_event_list.py` | `EventList`: a recording kept in memory equals the file read back. |
 
 ## Porting tests from the final-year project
 

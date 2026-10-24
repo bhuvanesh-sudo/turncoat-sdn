@@ -160,6 +160,12 @@ A task is done only when all of these are true:
   is appended to the end of `SCENARIOS`, so the golden files never change.
   Its entry in `docs/attacks.md` lands in the same push. The full guide is
   [How to write an attack](docs/attacks.md#how-to-write-an-attack).
+- **Results files keep their columns.** `turncoat replicate` writes the
+  results CSV described in `docs/event-format.md`, and `turncoat compare`
+  and anyone's scripts read it by column name. Add a column only at the end
+  of `RESULTS_FIELDS`, document it in the same push, and bump
+  `RESULTS_VERSION`; never rename, reorder or retype one within a major
+  version.
 - **Port, then improve.** When moving code from the final-year project, first
   move it unchanged and prove the numbers match, then refactor in a separate
   commit.
