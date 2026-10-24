@@ -93,8 +93,26 @@ fits (Added, Changed, Fixed, Removed).
   delays them, and `--identity-binding` picks the admission rule; `run`
   reports admission refusals, and `score` reports each IoT client's refused
   requests and an admission total; `docs/cli.md` (jv).
+- Replicate results file in `turncoat_sdn.stats.replicates`: one CSV row per
+  run with strategy, scenario, seed and every metric, simulator and detection
+  columns alike (results format 1.0, `RESULTS_FIELDS`), with a typed reader;
+  `turncoat replicate` runs every strategy on every scenario over N paired
+  seeds into it in one command, scoring recordings kept in memory by the new
+  `turncoat_sdn.events.EventList`; the results-file section of
+  `docs/event-format.md` and `docs/cli.md`.
+- Bootstrap confidence intervals in `turncoat_sdn.stats.bootstrap`: seeded
+  percentile bootstrap with configurable confidence and resamples, paired
+  across strategies; `turncoat replicate` prints every metric's mean with
+  `[low, high]` and writes them with `--summary`, and
+  `summarize_metrics(..., confidence=0.95)` adds them to descriptive
+  summaries; `docs/statistics.md` (confidence intervals) and
+  `docs/results.md`, a full 30-seed comparison.
 
 ### Fixed
+
+- The strategy benchmark runner's default scenarios were a fixed list of the
+  four v0.2 scenarios, missing `grayhole`, `onoff` and `spoof`; it now uses
+  `turncoat_sdn.sim.SCENARIOS`.
 
 - `turncoat score` counted traffic to an attacking server from the start of
   the run; "Routed to attackers" now counts from each attacker's onset, and
