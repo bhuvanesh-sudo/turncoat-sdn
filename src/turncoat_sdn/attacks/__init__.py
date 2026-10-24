@@ -26,11 +26,13 @@ from __future__ import annotations
 from turncoat_sdn.attacks.base import ServerAttack, Status
 from turncoat_sdn.attacks.blackhole import Blackhole
 from turncoat_sdn.attacks.grayhole import Grayhole
+from turncoat_sdn.attacks.on_off import OnOff
 from turncoat_sdn.attacks.sybil import Sybil
 
 __all__ = [
     "Blackhole",
     "Grayhole",
+    "OnOff",
     "ServerAttack",
     "Status",
     "Sybil",
