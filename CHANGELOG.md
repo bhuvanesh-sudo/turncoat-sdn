@@ -65,3 +65,9 @@ fits (Added, Changed, Fixed, Removed).
   attacker gets its own seeded random stream, and the `topology` event records
   every onset; malicious traffic and isolation now count from the onset.
   Tests, and `docs/attacks.md` with how to write an attack (ash).
+- Grayhole attack, `Grayhole` in `turncoat_sdn.attacks`: drops a configurable
+  fraction of tasks after its onset (`drop_fraction`, default 0.5), one seeded
+  draw per task; a `grayhole` scenario, also a `turncoat run --scenario`
+  choice, with `SimConfig.grayhole_drop_fraction`; tests that the fraction is
+  honoured, nothing drops before onset, recordings validate and the scorer
+  names it; its entry in `docs/attacks.md` (bv).
