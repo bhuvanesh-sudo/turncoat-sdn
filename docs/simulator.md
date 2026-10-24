@@ -1,6 +1,6 @@
 # The simulator
 
-**Owner:** bv · **Written in:** v0.1 · **Extended in:** v0.2 (recording to `events.jsonl`), v0.3 (attack profiles, grayhole and onoff scenarios)
+**Owner:** bv · **Written in:** v0.1 · **Extended in:** v0.2 (recording to `events.jsonl`), v0.3 (attack profiles, grayhole, onoff and spoof scenarios, IoT clients)
 
 ## What it is
 
@@ -147,6 +147,7 @@ Return `None` from the factory to skip recording a run.
 | `both` | the Sybil on the last node, the dropper on the one before | Both at once. |
 | `grayhole` | last node drops half the tasks it accepts and serves the rest | Its losses are partial, so it must be told apart from a blackhole. From v0.3. |
 | `onoff` | last node lies like the Sybil for 10 s, then is honest for 10 s, and repeats | Its honest phases win back its place, so flagging it once is not enough. From v0.3. |
+| `spoof` | IoT device `iot38` claims to be `iot1` every 2 s, from its own address | Its cryptography is correct, so only the controller's address binding stops it. From v0.3. |
 
 Attackers sit at the end of the index range so a round-robin never starts on
 one. From v0.3 each attacker is an attack profile from `turncoat_sdn.attacks`
@@ -154,6 +155,13 @@ one. From v0.3 each attacker is an attack profile from `turncoat_sdn.attacks`
 scenario's attackers honest for the first 30 s, and `simulate(...,
 attacks={7: Sybil(start_s=30.0)})` places your own. See
 [Attacks](attacks.md).
+
+A run with a client attacker (`spoof`, or `simulate(...,
+client_attacks={37: IdentitySpoof(target=0)})`) also models the 40 IoT
+devices: each arrival is attributed to one, from a random stream of its own,
+and every request passes the controller's admission check
+(`sim/admission.py`, rule `SimConfig.identity_binding`) before routing. Runs
+without one model no devices and record exactly what they did before.
 
 ### Hooks
 
@@ -293,10 +301,11 @@ once `turncoat_sdn.trust` and `turncoat_sdn.strategies` land.
   cliff, not the strategy.
 - **Four built-in attacks.** The scenarios place a Sybil, a blackhole, a
   grayhole and an on-off attacker, hostile from the start unless
-  `attack_start_s` delays them. Flood and identity spoof, attacks by clients,
-  need per-client arrivals first (see [Attacks](attacks.md)). `grayhole` and
-  `onoff` report after the final-year project's four scenarios, so their
-  order, and every golden number, is unchanged.
+  `attack_start_s` delays them, and an identity spoof by an IoT device.
+  Flood, the other client attack, can use the same `ClientAttack` interface
+  but needs a per-client rate tell (see [Attacks](attacks.md)). `grayhole`,
+  `onoff` and `spoof` report after the final-year project's four scenarios,
+  so their order, and every golden number, is unchanged.
 - **Recordings are large.** A default 120 s run is about 15,500 lines and
   1.5 MB, almost all of it `route` and `report`. 900 paired runs is over a
   gigabyte, so record the runs you want to score, not every run by default.

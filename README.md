@@ -11,8 +11,8 @@
 > five strategies and the trust model run on a plain laptop, every run records
 > to the shared `events.jsonl` format, and `turncoat run`, `validate` and
 > `score` grade it. v0.3 adds the attack catalogue: every attack is a profile
-> with its own onset `start_s`, and sybil, blackhole, grayhole and on-off run
-> and are scored today. See the [release plan](#release-plan).
+> with its own onset `start_s`, and sybil, blackhole, grayhole, on-off and
+> identity spoof run and are scored today. See the [release plan](#release-plan).
 
 ---
 
@@ -63,23 +63,24 @@ scorers --> statistics --> report
 | **Strategies and trust model** | `random`, `round_robin`, `least_conn`, `no_trust` and `zt_sdn`, plus the trust calculator, EdgeScore selector, isolation threshold and anomaly gate. | v0.1 |
 | **Event format** | One JSON object per line, covering every routing decision, outcome, classification and quarantine, plus the ground truth. Versioned, with a validator. | v0.2 |
 | **Scorers** | Detection accuracy and latency with a confusion matrix, availability, NFR and interval metrics. | v0.2 |
-| **Attack library** | Six hostile behaviours: sybil, blackhole, grayhole, on-off, flood and identity spoof. Each has a configurable onset `start_s`. | v0.3; sybil, blackhole, grayhole and on-off are in |
+| **Attack library** | Six hostile behaviours: sybil, blackhole, grayhole, on-off, flood and identity spoof. Each has a configurable onset `start_s`. | v0.3; sybil, blackhole, grayhole, on-off and identity spoof are in |
 | **Statistics** | Paired Wilcoxon tests with Holm correction and bootstrap CIs. | v0.4; descriptive summaries and a strategy benchmark runner from v0.3 |
 
 ## The attack catalogue
 
 Every attack is a turncoat: honest until its onset `start_s`, hostile after.
-Each is a small class on one interface, `ServerAttack`, and the label is the
-ground truth the scorer checks its verdict against.
+Each is a small class on one of two interfaces, `ServerAttack` for a server
+and `ClientAttack` for an IoT device, and the label is the ground truth the
+scorer checks its verdict against.
 
-| Attack | After its onset, the server... | Label | Scenario | Status |
+| Attack | After its onset, the attacker... | Label | Scenario | Status |
 |---|---|---|---|---|
 | Sybil | claims to be idle, serves slowly, answers polls slowly | `sybil` | `sybil`, `both` | in (ash) |
 | Blackhole | accepts every task and drops it | `drop` | `drop`, `both` | in (ash) |
 | Grayhole | accepts every task and drops a fraction of them | `grayhole` | `grayhole` | in (bv) |
 | On-off | alternates Sybil phases with honest ones | `onoff` | `onoff` | in (arj) |
 | Flood | an IoT client sends far above its normal rate | `flood` | | v0.3 (arv) |
-| Identity spoof | an IoT client claims another device's identity | `spoof` | | v0.3 (jv) |
+| Identity spoof | an IoT client claims another device's identity | `spoof` | `spoof` | in (jv) |
 
 How each one behaves, what catches it, and how to write your own are in
 [docs/attacks.md](docs/attacks.md).
@@ -134,11 +135,14 @@ The grayhole is named, not mistaken for a blackhole, and cut off three
 seconds after it starts. Run the same seed with `--strategy round_robin` and
 the controller still flags it, but nothing acts on it: an eighth of all
 traffic keeps landing on it and 9.4% of all tasks fail. `--scenario both` runs
-a Sybil and a blackhole together, and `--scenario onoff` a Sybil that keeps
-going honest to win back its place. Every command and option is in
-[docs/cli.md](docs/cli.md).
+a Sybil and a blackhole together, `--scenario onoff` a Sybil that keeps
+going honest to win back its place, and `--scenario spoof` an IoT device
+claiming another's identity, refused at admission. Every command and option
+is in [docs/cli.md](docs/cli.md).
 
-To make an attacker turn later, give it an onset. From Python,
+To make an attacker turn later, give it an onset: `--onset 30` delays the
+scenario's attackers, and `--attack sybil,node=srv3,start=30` adds one of
+your own beside them. From Python,
 `SimConfig(attack_start_s=30.0)` delays a scenario's attackers and
 `simulate(..., attacks={7: Grayhole(start_s=30.0)})` places your own; the
 onset is written into the recording and detection is measured from it (see
@@ -146,8 +150,8 @@ onset is written into the recording and detection is measured from it (see
 
 ### Where this is going
 
-Flood and identity spoof, the two client-side attacks, complete the
-catalogue during v0.3, and comparisons over many seeds arrive in v0.4:
+Flood completes the catalogue during v0.3, and comparisons over many seeds
+arrive in v0.4:
 
 ```bash
 turncoat compare --strategies zt_sdn,least_conn --seeds 30

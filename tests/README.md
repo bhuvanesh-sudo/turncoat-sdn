@@ -11,7 +11,8 @@ sudo is needed. Tests that need the live backend must be marked
 | `cli/test_routers.py` | The CLI's five strategies reproduce both final-year golden files (`sim/golden_fyp_baseline.json`, `trust/golden_fyp_edge_score.json`). |
 | `cli/test_run.py` | `turncoat run`: valid recordings, recording leaves the numbers unchanged, same seed gives the same file byte for byte, options and errors. |
 | `cli/test_validate.py` | `turncoat validate`: verdicts and exit codes for valid, broken, missing and mixed files. |
-| `cli/test_score.py` | `turncoat score`: service totals rebuilt from events equal the simulator's counts for every strategy and scenario, detection and cut-off, `--json`, `--detail` and errors. |
+| `cli/test_score.py` | `turncoat score`: service totals rebuilt from events equal the simulator's counts for every strategy and scenario, the attacker share equals the run's from each onset, detection and cut-off, `--json`, `--detail` and errors. |
+| `cli/test_attack_option.py` | `turncoat run --attack`, `--onset` and `--identity-binding`: parsing every spec and its errors, where each attacker is placed, collisions refused with exit 2, and client rows and admission counts in `score`. |
 | `cli/test_golden.py` | **Fixed seed, fixed scores**: `run` then `score --json` for eight cases must equal `cli/golden_scores.json`. |
 | `sim/test_golden.py` | The simulator reproduces the final-year project's numbers exactly, from `sim/golden_fyp_baseline.json`. |
 | `sim/test_simulator.py` | Seed pairing, attacker behaviour, queueing, the hooks, and CSV output. |
@@ -28,6 +29,7 @@ sudo is needed. Tests that need the live backend must be marked
 | `attacks/test_profiles.py` | The attack interface on its own: honest before `start_s`, hostile after, settings and validation, and what `Sybil` and `Blackhole` do once they turn. |
 | `attacks/test_grayhole.py` | The grayhole: drops its configured fraction, nothing before `start_s`, one seeded draw per task that leaves the workload paired, a recording that validates, the scorer naming it `grayhole` for `zt_sdn`, and the trust-only containment it cannot name. |
 | `attacks/test_on_off.py` | The on-off attacker: phase timing, Sybil behaviour while hostile and honesty between, nothing before `start_s`, no draws and a paired workload, a recording that validates, the scorer naming it `onoff` for `zt_sdn` across seeds, onsets and phase lengths, and the phase lengths where it stops. |
+| `attacks/test_spoof.py` | The identity spoof and the client attack interface: quiet until `start_s`, a fixed beat with no draws, the admission rules (`roster` refuses at any onset; `tofu` refuses once the victim has spoken and otherwise hands it the identity, live run 9), a refused spoof costing the fleet nothing, devices and refusals in the recording, and the scorer naming it `spoof` at its first attempt. |
 | `attacks/test_onset.py` | Attacks in the simulator: passing them explicitly changes no number, onset is recorded in `topology`, turncoats are honest before it, malicious traffic and detection count from it, random attacks stay paired, and the late-blackhole result. |
 | `benchmark/test_benchmark_scoring.py`, `benchmark/test_comparison_report.py`, `benchmark/test_strategy_benchmark.py` | The v0.3 strategy benchmark: per-strategy summaries, comparison reports in CSV and JSON, and the reproducible runner. |
 | `stats/test_descriptive.py` | Descriptive statistics over repeated runs: mean, sample standard deviation, minimum, maximum and count. |

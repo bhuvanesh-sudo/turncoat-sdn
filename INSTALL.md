@@ -66,7 +66,7 @@ python -c "import turncoat_sdn.sim as s; print(s.SCENARIOS)"
 ```
 
 The first prints the version and the second prints
-`('clean', 'sybil', 'drop', 'both', 'grayhole', 'onoff')`. To record a
+`('clean', 'sybil', 'drop', 'both', 'grayhole', 'onoff', 'spoof')`. To record a
 simulated run, validate it and score it, follow the
 [quick start in the README](README.md#quick-start-v03).
 
