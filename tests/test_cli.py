@@ -43,7 +43,7 @@ def test_module_is_runnable():
 def test_help_lists_all_commands(capsys):
     assert main([]) == 0
     out = capsys.readouterr().out
-    for command in ("run", "validate", "score", "replicate", "compare"):
+    for command in ("run", "convert", "validate", "score", "replicate", "compare"):
         assert command in out
 
 
