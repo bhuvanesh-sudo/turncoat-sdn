@@ -56,8 +56,16 @@ __all__ = [
     "PairedComparison",
     "holm_adjust",
     "paired_wilcoxon",
+    "AdjustedComparison",
+    "ComparisonReport",
+    "compare_strategies",
 ]
 
+from turncoat_sdn.stats.compare import (
+    AdjustedComparison,
+    ComparisonReport,
+    compare_strategies,
+)
 from turncoat_sdn.stats.paired import (
     PairedComparison,
     holm_adjust,
