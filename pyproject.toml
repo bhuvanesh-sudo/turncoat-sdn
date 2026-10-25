@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "turncoat-sdn"
-version = "0.4.0.dev0"
+version = "1.0.0"
 description = "A reproducible benchmark for trust-aware SDN load balancers under delayed-onset (turncoat) attacks."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -27,7 +27,7 @@ keywords = [
   "trust-model",
 ]
 classifiers = [
-  "Development Status :: 2 - Pre-Alpha",
+  "Development Status :: 4 - Beta",
   "Intended Audience :: Science/Research",
   "Operating System :: OS Independent",
   "Programming Language :: Python :: 3",
@@ -79,7 +79,7 @@ include = [
 
 [tool.pytest.ini_options]
 minversion = "8.0"
-testpaths = ["tests"]
+testpaths = ["tests", "backends/mininet/tests"]
 addopts = "-ra --strict-markers --strict-config --import-mode=importlib"
 markers = [
   "slow: long-running test (many seeds or long simulated time)",

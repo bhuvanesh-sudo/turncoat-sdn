@@ -9,18 +9,18 @@ This repository is part of the following parent project:
 [![CI](https://github.com/bhuvanesh-sudo/turncoat-sdn/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/bhuvanesh-sudo/turncoat-sdn/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](pyproject.toml)
-[![Status: v0.4 in progress](https://img.shields.io/badge/status-v0.4%20in%20progress-orange.svg)](CHANGELOG.md)
+[![Release: v1.0.0](https://img.shields.io/badge/release-v1.0.0-brightgreen.svg)](CHANGELOG.md)
 
-> **Status: v0.4 in progress.** v0.1 to v0.3 are merged: the simulator, the
-> five strategies and the trust model run on a plain laptop, every run records
-> to the shared `events.jsonl` format, `turncoat run`, `validate` and `score`
-> grade it, and the attack catalogue gives every attack its own onset
-> `start_s`. v0.4 adds statistics: `turncoat replicate` runs many paired seeds
-> into one results CSV and prints every metric with a 95% bootstrap confidence
-> interval, `turncoat compare` tests every gap between strategies with paired
-> Wilcoxon tests and Holm correction, and `turncoat plot` draws the figure.
-> See [Compare strategies](#compare-strategies) and the
-> [release plan](#release-plan).
+> **Status: v1.0.0.** The simulator, the five strategies and the trust model
+> run on a plain laptop. Every run records to the shared `events.jsonl`
+> format, and `turncoat run`, `validate` and `score` grade it. Every attack in
+> the catalogue has its own onset `start_s`, and `turncoat replicate`,
+> `compare` and `plot` put confidence intervals and paired tests on every
+> comparison. An optional live testbed on Mininet runs the same strategies,
+> trust model and attacks over a real emulated network and records the same
+> file, and you can add your own attack, strategy or system. Start with the
+> [quick start](#quick-start); what changed in each release is in
+> [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
@@ -71,8 +71,9 @@ scorers --> statistics --> report
 | **Strategies and trust model** | `random`, `round_robin`, `least_conn`, `no_trust` and `zt_sdn`, plus the trust calculator, EdgeScore selector, isolation threshold and anomaly gate. | v0.1 |
 | **Event format** | One JSON object per line, covering every routing decision, outcome, classification and quarantine, plus the ground truth. Versioned, with a validator. | v0.2 |
 | **Scorers** | Detection accuracy and latency with a confusion matrix, availability, NFR and interval metrics. | v0.2 |
-| **Attack library** | Six hostile behaviours: sybil, blackhole, grayhole, on-off, flood and identity spoof. Each has a configurable onset `start_s`. | v0.3; sybil, blackhole, grayhole, on-off and identity spoof are in |
-| **Statistics** | A results CSV over many paired seeds, bootstrap CIs on every metric, paired Wilcoxon tests with Holm correction, a comparison table and figure. | v0.4; descriptive summaries and a strategy benchmark runner from v0.3 |
+| **Attack library** | Hostile behaviours with a configurable onset `start_s`: sybil, blackhole, grayhole, on-off and identity spoof, and an interface for your own. | v0.3; flood is planned |
+| **Statistics** | A results CSV over many paired seeds, bootstrap CIs on every metric, paired Wilcoxon tests with Holm correction, a comparison table and figure, and cross-scenario rankings. | v0.4; descriptive summaries from v0.3, rankings from v1.0 |
+| **Live testbed** | Optional. The same strategies, trust model, detection and attacks on a Mininet network with real HTTP agents and clients, recorded in the same format. Installed separately; the core never imports it. | v1.0 |
 
 ## The attack catalogue
 
@@ -83,17 +84,18 @@ scorer checks its verdict against.
 
 | Attack | After its onset, the attacker... | Label | Scenario | Status |
 |---|---|---|---|---|
-| Sybil | claims to be idle, serves slowly, answers polls slowly | `sybil` | `sybil`, `both` | in (ash) |
-| Blackhole | accepts every task and drops it | `drop` | `drop`, `both` | in (ash) |
-| Grayhole | accepts every task and drops a fraction of them | `grayhole` | `grayhole` | in (bv) |
-| On-off | alternates Sybil phases with honest ones | `onoff` | `onoff` | in (arj) |
-| Flood | an IoT client sends far above its normal rate | `flood` | | v0.3 (arv) |
-| Identity spoof | an IoT client claims another device's identity | `spoof` | `spoof` | in (jv) |
+| Sybil | claims to be idle, serves slowly, answers polls slowly | `sybil` | `sybil`, `both` | in |
+| Blackhole | accepts every task and drops it | `drop` | `drop`, `both` | in |
+| Grayhole | accepts every task and drops a fraction of them | `grayhole` | `grayhole` | in |
+| On-off | alternates Sybil phases with honest ones | `onoff` | `onoff` | in |
+| Flood | an IoT client sends far above its normal rate | `flood` | | planned |
+| Identity spoof | an IoT client claims another device's identity | `spoof` | `spoof` | in |
 
-How each one behaves, what catches it, and how to write your own are in
-[docs/attacks.md](docs/attacks.md).
+How each one behaves and what catches it are in
+[docs/attacks.md](docs/attacks.md). Writing your own takes one small class;
+see [Extend it](#extend-it).
 
-## Quick start (v0.4)
+## Quick start
 
 Install from source and run the test suite (full details in
 [INSTALL.md](INSTALL.md)):
@@ -101,12 +103,15 @@ Install from source and run the test suite (full details in
 ```bash
 git clone https://github.com/bhuvanesh-sudo/turncoat-sdn.git
 cd turncoat-sdn
-python -m venv .venv
+python -m venv .venv               # macOS and Linux: python3 -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
 pytest
-turncoat --version
+turncoat --version                 # turncoat 1.0.0
 ```
+
+It needs Python 3.11 or newer and Git, and works the same on Windows, macOS
+and Linux. The test suite takes a few minutes.
 
 The core needs only NumPy and SciPy. It never imports os-ken, Ryu or Mininet,
 and a test enforces that.
@@ -193,7 +198,7 @@ difference with a bootstrap interval, a Wilcoxon signed-rank p-value, and
 that p-value after Holm correction across every test in the table:
 
 ```bash
-turncoat replicate -o results.csv
+turncoat replicate -o results.csv   # 7 scenarios x 5 strategies x 30 seeds, about 5 minutes
 turncoat compare results.csv --strategies zt_sdn,round_robin --scenarios both
 ```
 
@@ -250,6 +255,59 @@ and names the grayhole on only 70% of seeds), is in
 [docs/results.md](docs/results.md). Why the tests are paired, and why Holm,
 is in [docs/statistics.md](docs/statistics.md).
 
+## Run it on a live network
+
+The simulator is a model. To check that a result survives a real network,
+the optional backend in [backends/mininet/](backends/mininet/README.md) runs
+the same code on one: every server is a Mininet host with an HTTP agent that
+really serves tasks, and every attacker is the same attack class the
+simulator uses, turning at the same onset. The controller routes, polls,
+quarantines and records with the core's own strategies, trust model and
+detection, so the recording scores like any other:
+
+```bash
+sudo .venv/bin/python -m turncoat_mininet.run --scenario sybil --onset 20 --duration 60 -o live.jsonl
+turncoat score live.jsonl
+```
+
+It needs Linux, root, Mininet and Open vSwitch. Setting them up, and a
+loopback mode that runs the same processes on any laptop with no root, are in
+[INSTALL.md](INSTALL.md#optional-the-live-mininet-testbed).
+
+## Extend it
+
+The benchmark is meant to grade more than our system. A new attack is a
+small class on `ServerAttack` or `ClientAttack`: say what it does once it
+turns, and the simulator, the scorers and the statistics handle the rest.
+[`examples/custom_attack.py`](examples/custom_attack.py) writes one in under
+50 lines, the *slowpoke*, which serves every task four times slower but never
+lies, and runs it on paired seeds:
+
+```bash
+python examples/custom_attack.py
+```
+
+It finds that the slowpoke costs SLO violations under every strategy and is
+never quarantined, because nothing in it looks like an attack.
+
+A new strategy is a small router: given each server's trust, claimed load,
+poll RTT and anomaly level, pick one.
+[`examples/custom_strategy.py`](examples/custom_strategy.py) writes *gated
+round robin*, round robin that skips any server the trust floor or anomaly
+gate holds out, and runs it against `zt_sdn` on the same seeds. Your own
+system needs no code from here at all: write `events.jsonl` in the shared
+format and `turncoat score` grades it.
+[`examples/score_outside_recording.py`](examples/score_outside_recording.py)
+does that with a toy controller written in plain Python, and `turncoat
+convert` turns the final-year controller's recordings into the format:
+
+```bash
+python examples/custom_strategy.py
+python examples/score_outside_recording.py
+```
+
+The walk-through for all three is in [docs/extending.md](docs/extending.md).
+
 ## Release plan
 
 | Release | Goal | Demo at the end |
@@ -257,8 +315,8 @@ is in [docs/statistics.md](docs/statistics.md).
 | v0.1 | The simulator runs on its own | `pytest` passes on a clean machine with no os-ken; one simulated run completes |
 | v0.2 | One event format, scorers read it | `turncoat run` then `turncoat score` prints detection results |
 | v0.3 | The full attack catalogue | All six attacks run and are scored, each with its onset visible |
-| **v0.4** | Statistics people can trust | `turncoat compare` prints p-values and CIs over 30 seeds |
-| v1.0 | Ready for others | A stranger follows this README from zero to a comparison table |
+| v0.4 | Statistics people can trust | `turncoat compare` prints p-values and CIs over 30 seeds |
+| **v1.0** | Ready for others | A stranger follows this README from zero to a comparison table |
 
 ## Project layout
 
@@ -273,8 +331,8 @@ turncoat-sdn/
 |   |-- scoring/      # attack, nfr, interval, availability, benchmark
 |   |-- stats/        # descriptive, bootstrap CIs, results file, Wilcoxon + Holm
 |   `-- cli/          # turncoat run / validate / score / replicate / compare / plot
-|-- backends/mininet/ # optional live testbed (v1.0)
-|-- examples/         # custom scenario, strategy and attack (v1.0)
+|-- backends/mininet/ # optional live testbed on Mininet, package turncoat_mininet (v1.0)
+|-- examples/         # a custom attack, a custom strategy, an outside recording
 |-- docs/             # documentation set; figures/ holds the README figures
 |-- tests/
 `-- .github/          # CI workflow, PR and issue templates
@@ -302,10 +360,15 @@ and ground truth. Then:
 - [docs/strategies.md](docs/strategies.md) and
   [docs/trust-model.md](docs/trust-model.md): the baselines and the trust
   formula's blind spot
+- [docs/extending.md](docs/extending.md): your own attack, strategy or
+  system
 - [docs/architecture.md](docs/architecture.md): how the parts fit, and what
   may import what
+- [backends/mininet/README.md](backends/mininet/README.md): the live testbed,
+  and what it shares with the simulator
 
 [docs/README.md](docs/README.md) lists every page, its owner and its release.
+Installing, with or without the live testbed, is in [INSTALL.md](INSTALL.md).
 
 ## Contributing
 
@@ -330,6 +393,24 @@ Coimbatore, under the guidance of Dr. Radhika N.
 | ash | Ashwin Kumar RM | Trust model and attacks |
 | arv | Aravind Kumar M | Strategies, scoring and statistics |
 | jv | K R Jeevan Raj | Repo, CLI and tests |
+
+## Cite it
+
+If you use turncoat-sdn in your research, please cite it.
+[CITATION.cff](CITATION.cff) holds the metadata, and GitHub's "Cite this
+repository" button turns it into APA or BibTeX:
+
+```bibtex
+@software{turncoat_sdn_2026,
+  author  = {K R Jeevan Raj and Aravind Kumar M and Arjun Krishnakumar and
+             Ashwin Kumar RM and Bhuvanesh S},
+  title   = {turncoat-sdn: a reproducible benchmark for trust-aware SDN load
+             balancers under delayed-onset attacks},
+  version = {1.0.0},
+  year    = {2026},
+  url     = {https://github.com/bhuvanesh-sudo/turncoat-sdn}
+}
+```
 
 ## License
 

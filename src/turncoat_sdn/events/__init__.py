@@ -24,6 +24,9 @@ roster and ground truth, then the run's events in time order::
 ``EventList`` keeps a recording in memory instead, holding exactly what
 ``read_events`` would return, for scoring many runs without writing files.
 
+``convert_live_file`` converts a recording the final-year controller wrote on
+a live run to this format (see :mod:`turncoat_sdn.events.live`).
+
 The schema itself is in :mod:`turncoat_sdn.events.schema` and described in
 docs/event-format.md. The validator is imported from its own module rather
 than re-exported, so ``python -m turncoat_sdn.events.validate`` runs cleanly.
@@ -34,13 +37,23 @@ This module must not import os-ken, Ryu or Mininet.
 from __future__ import annotations
 
 from turncoat_sdn.events.jsonl import Event, EventList, EventWriter, read_events
+from turncoat_sdn.events.live import (
+    Conversion,
+    ConversionError,
+    convert_live_events,
+    convert_live_file,
+)
 from turncoat_sdn.events.schema import SCHEMA_VERSION, supported_version
 
 __all__ = [
     "SCHEMA_VERSION",
+    "Conversion",
+    "ConversionError",
     "Event",
     "EventList",
     "EventWriter",
+    "convert_live_events",
+    "convert_live_file",
     "read_events",
     "supported_version",
 ]

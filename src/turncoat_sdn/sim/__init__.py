@@ -37,6 +37,13 @@ from turncoat_sdn.sim.config import (
     scenario_attacks,
     scenario_client_attacks,
 )
+from turncoat_sdn.sim.detect import (
+    SIGNAL_LATENCY_TELL,
+    SIGNAL_PACKET_DROP,
+    DetectionSettings,
+    detect_anomalies,
+    is_excluded,
+)
 from turncoat_sdn.sim.engine import UNTRUSTED_DEFAULT, node_id, run_paired, simulate
 from turncoat_sdn.sim.hooks import (
     LatencyTell,
@@ -54,8 +61,11 @@ from turncoat_sdn.sim.result import CSV_FIELDS, METRICS, RunResult, as_rows, gin
 __all__ = [
     "BINDINGS",
     "CSV_FIELDS",
+    "DetectionSettings",
     "METRICS",
     "SCENARIOS",
+    "SIGNAL_LATENCY_TELL",
+    "SIGNAL_PACKET_DROP",
     "UNTRUSTED_DEFAULT",
     "IdentityBinding",
     "LatencyTell",
@@ -72,7 +82,9 @@ __all__ = [
     "as_rows",
     "client_id",
     "client_ip",
+    "detect_anomalies",
     "gini",
+    "is_excluded",
     "malicious_roles",
     "node_id",
     "run_paired",

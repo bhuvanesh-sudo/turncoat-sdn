@@ -1,6 +1,6 @@
 # Event format
 
-**Owner:** arj · **Written in:** v0.2, extended in v0.4
+**Owner:** arj · **Written in:** v0.2, extended in v0.4 and v1.0
 
 ## What it is
 
@@ -366,6 +366,64 @@ columns as text. A major version may rename, remove or retype a column, and
 `read_results` refuses a file whose header does not start with the 1.0
 columns.
 
+### Live runs
+
+A live run is recorded in the same schema as a simulated one, with
+`backend: live` in the header, and scored with the same commands:
+
+```bash
+turncoat validate live.jsonl
+turncoat score live.jsonl
+```
+
+**The live backend records it directly.** `backends/mininet/` (see its
+README) writes with `EventWriter`, stamps `ts` as seconds since the run's
+shared start, and stamps and writes under one lock, so its lines never go
+back in time. Its header adds `network` (`mininet` or `loopback`). Live
+events carry every field the simulator's do, plus a few of their own:
+`client_ip` on `route`, `device` on `report` and `poll_ms` on `node_status`.
+
+**Where the IoT clients fit.** The IoT clients write no file of their own.
+Each client sends its outcome to the controller, and the controller records it
+as a `report` event, beside its own `route`, `anomaly` and `quarantine`
+events. So a live run has exactly one recording, and its client outcomes have
+the same `report` fields as the simulator's.
+
+`backends/mininet/tests/test_live_recording.py` is the check: it records a
+loopback run, passes it through `turncoat validate` and `turncoat score`, and
+compares its events field by field with a simulated run of the same scenario.
+
+**Convert an old recording.** The final-year controller's recordings convert
+with `turncoat convert` (see [cli.md](cli.md#turncoat-convert)) or
+`turncoat_sdn.events.convert_live_file(source, target)`:
+
+```bash
+turncoat convert data/events.jsonl -o live.jsonl --strategy zt_sdn
+turncoat score live.jsonl
+```
+
+| The final-year recording | The converted one |
+|---|---|
+| No header | A header with `backend: live`, `started_at` and whatever `--seed`, `--strategy` and `--scenario` say |
+| `ts` is wall-clock time | `ts` counts from the earliest stamp in the file, rounded to microseconds as the simulator rounds |
+| Lines can be slightly out of time order, because the bus stamped `ts` before taking its lock and wrote after releasing it | Events sorted by `ts`; equal stamps keep their order in the file |
+| The `topology` may be stamped after an early `switch_up` | The `topology` comes first, at `ts` 0 |
+| Every event has a `seq` | `seq` is dropped |
+| `NaN` or `Infinity` where a value was missing | `null` |
+| A truncated tail line from Ctrl-C | Left out |
+
+Everything else is kept as it is, extra fields and live-only event types
+included. The converter refuses a file that already has a header, a file with
+no `topology` (the start of the run is missing, and with it the ground
+truth), and a file with more than one `topology` (one per controller start,
+so two runs in one file). It counts and reports every change it makes.
+
+`tests/events/fyp_live_run.jsonl` is a short recording in the final-year
+controller's shape, with every one of the differences above.
+`tests/events/test_live.py` converts it, and also takes simulated runs,
+rewrites them in that shape, converts them back and checks that
+`turncoat score` gives the same numbers to the last digit.
+
 ### What changed from the final-year project
 
 | Final-year project | Schema 1.0 | Why |
@@ -385,8 +443,18 @@ columns.
   live recordings carry their extra events, but a typo in a type name (`qurantine`)
   passes validation and is silently ignored by the scorers.
 - **Existing final-year recordings do not validate as they are.** They lack
-  the header and use wall-clock `ts`. Converting them, and checking that a
-  live run writes this schema directly, is the v1.0 live-recording task.
+  the header and use wall-clock `ts`. Run `turncoat convert` on them first
+  (see [Live runs](#live-runs)).
+- **A converted recording's `ts` is only as good as the controller's clock.**
+  The final-year bus stamped wall-clock time, so a clock step during a run
+  (an NTP correction) shows up in the converted `ts`. The live backend in
+  `backends/mininet/` uses a monotonic clock and does not have this problem.
+- **Ground-truth onsets in a converted recording are as configured, not as
+  observed.** The final-year controller wrote each attacker's
+  `attack_start_s` from its config, and each node agent counted that delay
+  from its own start, which can be a few seconds after the controller's. So
+  detection latency in a converted recording can read slightly long. The new
+  live backend starts every process against one shared `t0` instead.
 - **A results file carries no header line of its own.** Its version is
   implied by its columns. A run's backend and config are not in it; keep the
   command that produced it beside it, as [results.md](results.md) does.

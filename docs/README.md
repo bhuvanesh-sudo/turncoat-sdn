@@ -9,6 +9,7 @@ sections for their own work, and the owner reviews those additions.
 |---|---|---|---|
 | `simulator.md` | bv | v0.1, extended in v0.2 | How does a run work, and why are seeds paired? |
 | `../INSTALL.md` | bv | v0.1, Mininet section in v1.0 | How do I install it, with or without the live testbed? |
+| `../backends/mininet/README.md` | bv | v1.0 | How does the live testbed work, and what does it share with the simulator? |
 | `results.md` | bv | v0.4 | What does a full comparison look like, and how do I reproduce it? |
 | `event-format.md` | arj | v0.2, extended in v0.4 | What exactly is in a recording and a results file? |
 | `architecture.md` | arj | v0.1 | How do the parts fit, and what depends on what? |
@@ -20,14 +21,15 @@ sections for their own work, and the owner reviews those additions.
 | `scoring.md` | arv | v0.2 | What does each score mean, and how is it computed? |
 | `benchmark-statistics.md` | arv | v0.3 | What do repeated runs look like, summarised? |
 | `statistics.md` | arv | v0.4 | Why these tests, and how do I read the output? |
+| `paired-statistics.md` | arv | v0.4 | How do I compare two strategies on matched seeds in code? |
 | `../README.md` | jv | v0.1, finished in v1.0 | What is this, and how do I see it work in five minutes? |
 | `../CONTRIBUTING.md` | jv | v0.1 | How do I propose a change? |
 | `cli.md` | jv | v0.2 to v0.4 | What commands and options exist? |
 
-Pages appear here as their release lands. As of v0.4 these exist:
+Pages appear here as their release lands. As of v1.0 these exist:
 `simulator.md`, `event-format.md`, `scoring.md`, `cli.md`,
 `architecture.md`, `concepts.md`, `trust-model.md`, `strategies.md`,
-`attacks.md`, `benchmark-statistics.md`, `statistics.md` (confidence
-intervals so far), `results.md`, `../INSTALL.md`, `../README.md` and
+`attacks.md`, `benchmark-statistics.md`, `statistics.md`,
+`paired-statistics.md`, `results.md`, `extending.md`, `../INSTALL.md` (with its Mininet section from v1.0), `../backends/mininet/README.md`, `../README.md` and
 `../CONTRIBUTING.md`. Each attack's entry in `attacks.md` is written by its
 author.

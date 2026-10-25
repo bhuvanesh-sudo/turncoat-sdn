@@ -2,9 +2,10 @@
 
 Owner: jv (Repo, CLI, tests and release track).
 
-Six commands join the packages into one workflow::
+Seven commands join the packages into one workflow::
 
     turncoat run --scenario both --strategy zt_sdn --seed 1 -o run.jsonl
+    turncoat convert data/events.jsonl -o live.jsonl
     turncoat validate run.jsonl
     turncoat score run.jsonl
     turncoat replicate --seeds 30 -o results.csv
@@ -12,8 +13,9 @@ Six commands join the packages into one workflow::
     turncoat plot results.csv -o comparison.svg
 
 ``run`` drives the simulator and records the run to ``events.jsonl``,
-``validate`` checks a recording against the schema, ``score`` grades it,
-``replicate`` runs many seeds into one results CSV with a confidence interval
+``convert`` brings a live recording from the final-year controller into the
+same format, ``validate`` checks a recording against the schema, ``score``
+grades it, ``replicate`` runs many seeds into one results CSV with a confidence interval
 on every metric, ``compare`` tests the paired differences between strategies,
 and ``plot`` draws the comparison figure. Every command and option is
 described in docs/cli.md.
@@ -31,7 +33,7 @@ import argparse
 from collections.abc import Sequence
 
 from turncoat_sdn import __version__
-from turncoat_sdn.cli import compare, evaluate, plot, replicate, run, score, validate
+from turncoat_sdn.cli import compare, convert, evaluate, plot, replicate, run, score, validate
 from turncoat_sdn.cli.common import EXIT_FAILED, EXIT_OK, EXIT_UNREADABLE
 
 PROG = "turncoat"
@@ -58,6 +60,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     commands = parser.add_subparsers(dest="command", metavar="<command>")
     run.add_parser(commands)
+    convert.add_parser(commands)
     validate.add_parser(commands)
     score.add_parser(commands)
     replicate.add_parser(commands)

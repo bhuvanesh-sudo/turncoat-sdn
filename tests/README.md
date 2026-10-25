@@ -2,7 +2,14 @@
 
 Run everything with `pytest` from the repository root. No os-ken, Mininet or
 sudo is needed. Tests that need the live backend must be marked
-`@pytest.mark.live`; core CI never runs them.
+`@pytest.mark.live` and skip themselves without it, so core CI passes them
+over.
+
+From v1.0, `pytest` also collects the live backend's own tests in
+`backends/mininet/tests/` (listed in
+[backends/mininet/README.md](../backends/mininet/README.md#tests)). They run
+real agents and a real controller on 127.0.0.1 and need no Mininet either;
+only `test_live_mininet.py` is `live`.
 
 | File | What it guards |
 |---|---|
@@ -35,9 +42,16 @@ sudo is needed. Tests that need the live backend must be marked
 | `stats/test_descriptive.py` | Descriptive statistics over repeated runs: mean, sample standard deviation, minimum, maximum and count. |
 | `stats/test_bootstrap.py` | Percentile-bootstrap intervals: the method against a direct numpy computation, seeding, paired resampling across groups, blanks, one run and agreeing runs, bad input, the opt-in interval on `summarize_metrics`, and 95% coverage on skewed data. |
 | `stats/test_replicates.py` | **The results file**: its columns start with the simulator's row, the detection columns, blanks for what a run cannot measure, and a writer and reader that round-trip with types. |
+| `examples/test_custom_strategy.py` | `examples/custom_strategy.py` stays under 50 lines of code, its gated round robin cycles, skips servers below the trust floor or at the anomaly gate and refuses when all are out, beats `zt_sdn` on SLO violations seed by seed on `both`, and the script runs and records a recording that validates and scores. |
+| `examples/test_score_outside_recording.py` | `examples/score_outside_recording.py`'s toy controller imports nothing from turncoat-sdn, its recording validates as schema 1.0 and is byte-for-byte reproducible, its blackhole is named against its own ground truth, and the script and `turncoat score` agree. |
+| `examples/test_custom_attack.py` | `examples/custom_attack.py` stays under 50 lines of code, its slowpoke is honest before onset and slow after, it costs SLO violations without being quarantined, and the script runs and records a recording that validates and scores. |
 | `cli/test_compare.py` | `turncoat compare`: the CSV report and its errors, the comparison family equals `compare_strategies` when everything is measured and drops only cells no seed can measure, one Holm family across scenarios, the table's means, intervals and p-values come from `turncoat_sdn.stats`, **Better** follows each metric's direction, and a full default comparison no longer fails on `clean`. |
 | `cli/test_replicate.py` | `turncoat replicate`: one row per paired run equal to `run` then `score`, every metric printed with an interval, the summary CSV, the same file for the same arguments, `--onset`, usage errors, and that the strategy benchmark runs every scenario. |
 | `events/test_event_list.py` | `EventList`: a recording kept in memory equals the file read back. |
+| `sim/test_recording.py`, `sim/test_golden.py` | Also guard `sim/detect.py`, the detection step shared with the live backend from v1.0: moving it out of the event loop changed no number. |
+| `events/test_live.py` | **Live recordings**: `fyp_live_run.jsonl` (the final-year controller's shape) is invalid as written and valid once converted, every conversion rule and refusal, and simulated runs rewritten in that shape score identically once converted. |
+| `backends/mininet/tests/test_live_recording.py` | **The live recording check**: a loopback live run passes `turncoat validate` and `turncoat score` unchanged, its events carry every field a simulated run's do, and the IoT clients' outcomes arrive as `report` events. |
+| `cli/test_convert.py` | `turncoat convert`: converts, validates and points to `score`, header options, the converted fixture scores with the attacker named, refusals and exit codes. |
 
 ## Porting tests from the final-year project
 
@@ -57,7 +71,7 @@ on the way over; if a number changes, the move is wrong, not the test.
 | `test_flood_detector.py`, `test_iot_client_flood.py`, `test_iot_client_spoof.py` | `tests/attacks/` | arv, jv | v0.3 |
 | `test_stats.py` | `tests/stats/` | arv | v0.4 |
 | `test_replicates.py` | `tests/stats/` | arj | v0.4 |
-| `test_node_agent.py`, `test_run_demo_mininet.py` | `backends/mininet/tests/` | bv | v1.0 |
+| `test_node_agent.py`, `test_run_demo_mininet.py`, `test_live_config_preflight.py` | `backends/mininet/tests/` (done: `test_node_agent.py`, `test_topology.py`) | bv | v1.0 |
 
 Tests for the blockchain ledger, RAFT, PRESENT-80, dashboard and AI optimiser
 stay in the final-year project. They are out of scope for this benchmark.

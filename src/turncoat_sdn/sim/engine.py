@@ -47,6 +47,12 @@ from turncoat_sdn.sim.config import (
     scenario_attacks,
     scenario_client_attacks,
 )
+from turncoat_sdn.sim.detect import (  # noqa: F401  (re-exported for callers of engine)
+    SIGNAL_LATENCY_TELL,
+    SIGNAL_PACKET_DROP,
+    detect_anomalies,
+    is_excluded,
+)
 from turncoat_sdn.sim.hooks import (
     LatencyTell,
     Outcome,
@@ -59,12 +65,6 @@ from turncoat_sdn.sim.result import RunResult
 
 #: Trust every node holds for the whole run when no trust model is given.
 UNTRUSTED_DEFAULT = 1.0
-
-#: Signal names on recorded ``anomaly`` events. They match the attack
-#: classifier's ``SIG_LATENCY_TELL`` and ``SIG_PACKET_DROP``; ``sim`` cannot
-#: import ``scoring``, so a test keeps the two in step.
-SIGNAL_LATENCY_TELL = "latency_tell"
-SIGNAL_PACKET_DROP = "packet_drop"
 
 #: ``reason`` on a recorded ``route_denied``: the router refused the task.
 DENIED_REASON = "all candidates quarantined"
@@ -258,9 +258,9 @@ def simulate(
             "topology", 0.0, graph=_topology(cfg, attackers, client_attackers), config=asdict(cfg)
         )
 
-    def is_excluded(i: int) -> bool:
+    def excluded_now(i: int) -> bool:
         """Whether the isolation threshold or the anomaly gate holds node ``i`` out."""
-        return trust_scores[i] < cfg.isolation_threshold or anomaly[i] >= cfg.anomaly_gate
+        return is_excluded(trust_scores[i], anomaly[i], cfg)
 
     def begin_service(i: int, task: _Task, now: float) -> None:
         """Occupy a worker on node ``i`` with ``task``."""
@@ -334,38 +334,11 @@ def simulate(
             # The controller's anomaly detection: two independent tells that
             # catch different attackers. The latency tell catches the Sybil
             # (claims idle, answers slowly); the timeout-rate tell catches the
-            # dropper (its tasks never come back).
-            baseline = (
-                latency_tell.fleet_latency_baseline(rtt_ms) if latency_tell is not None else None
+            # dropper (its tasks never come back). Shared with the live backend.
+            fired = detect_anomalies(
+                claimed_cpu, rtt_ms, recent_statuses, anomaly, strikes, cfg, latency_tell
             )
-            for i in range(n):
-                raw = 0.0
-                # What fired, for the recording: signal name to strength.
-                signals: dict[str, float] = {}
-                if latency_tell is not None:
-                    tell = latency_tell.evaluate_latency_tell(
-                        claimed_cpu=claimed_cpu[i],
-                        measured_rtt_ms=rtt_ms[i],
-                        fleet_baseline_ms=baseline,
-                        strikes=strikes[i],
-                    )
-                    strikes[i] = tell.strikes
-                    raw = 1.0 if tell.tripped else 0.0
-                    if tell.tripped:
-                        ratio = getattr(tell, "ratio", None)
-                        if ratio is None:
-                            ratio = rtt_ms[i] / baseline if baseline else 1.0
-                        signals[SIGNAL_LATENCY_TELL] = ratio
-
-                history = recent_statuses[i]
-                if len(history) >= cfg.min_timeout_samples:
-                    timeout_rate = sum(1 for s in history if s == "timeout") / len(history)
-                    if timeout_rate > cfg.honesty_deviation_threshold:
-                        raw = 1.0
-                        signals[SIGNAL_PACKET_DROP] = timeout_rate
-
-                anomaly[i] = cfg.anomaly_ema * raw + (1 - cfg.anomaly_ema) * anomaly[i]
-
+            for i, signals in enumerate(fired):
                 if rec is not None and signals:
                     rec.write(
                         "anomaly",
@@ -379,12 +352,12 @@ def simulate(
             # A turncoat only counts once it has turned: excluding it before its
             # onset is not catching it.
             if attackers and result.time_to_isolate_s is None:
-                if all(a.active(now) and is_excluded(i) for i, a in attackers.items()):
+                if all(a.active(now) and excluded_now(i) for i, a in attackers.items()):
                     result.time_to_isolate_s = now
 
             if rec is not None:
                 for i in range(n):
-                    out = is_excluded(i)
+                    out = excluded_now(i)
                     if out != excluded[i]:
                         excluded[i] = out
                         rec.write(

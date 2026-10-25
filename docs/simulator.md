@@ -214,6 +214,14 @@ The event loop pops four kinds of event from a heap, in time order:
   run the latency tell and the timeout-rate tell, smooth them into each node's
   anomaly level, and check whether every attacker is now excluded.
 
+The poll's detection step (both tells, the anomaly smoothing and the
+exclusion test) lives in `turncoat_sdn/sim/detect.py` as
+`detect_anomalies` and `is_excluded`, apart from the event loop. From v1.0
+the live Mininet backend calls the same two functions on real `/status`
+polls (see [backends/mininet/README.md](../backends/mininet/README.md)), so
+the simulator and the testbed cannot detect differently. Moving them changed
+no number; the golden files still pass.
+
 The controller only learns a node's load at each poll. Between polls every
 arrival is routed on the same stale snapshot, which is why load-aware
 strategies herd. That is a real result, not a bug: see
@@ -291,7 +299,9 @@ once `turncoat_sdn.trust` and `turncoat_sdn.strategies` land.
 ## Known limits
 
 - **It is a model.** The network, the node agents and the clients are
-  simulated. Only the decisions plugged into the hooks are real code.
+  simulated. Only the decisions plugged into the hooks are real code. The
+  live Mininet backend (v1.0) runs the same decisions over a real emulated
+  network; see [INSTALL.md](../INSTALL.md#optional-the-live-mininet-testbed).
 - **Load staleness is built in.** Load-aware strategies pay for the 1 s poll
   in the clean scenario; the final-year project measured `zt_sdn` at 0.091
   against round-robin's 0.083. Shortening `poll_s` removes the gap.

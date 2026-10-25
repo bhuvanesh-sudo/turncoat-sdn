@@ -6,7 +6,9 @@ up your machine to getting a pull request merged.
 ## 1. Set up a development environment
 
 You need Python 3.11 or newer and Git. You do **not** need os-ken, Mininet or
-root access for anything in the core package.
+root access for anything in the core package, or to run the tests. Only a
+real run on the optional live testbed needs them (see
+[INSTALL.md](INSTALL.md#optional-the-live-mininet-testbed)).
 
 ```bash
 git clone https://github.com/bhuvanesh-sudo/turncoat-sdn.git
@@ -137,7 +139,15 @@ A task is done only when all of these are true:
 ## 7. Code rules
 
 - **Core stays SDN-free.** Code that needs os-ken or Mininet goes under
-  `backends/`, never under `src/turncoat_sdn/`.
+  `backends/`, never under `src/turncoat_sdn/`. In `backends/mininet/`, only
+  `topology.build_network` and its helpers import Mininet, and only when
+  called; everything else, and every test but the `live` ones, runs without
+  it.
+- **The live backend reuses the core.** A decision the testbed makes
+  (routing, trust, detection, an attacker's behaviour) is imported from
+  `turncoat_sdn`, never copied into `backends/`. If the backend needs a piece
+  that is buried in the simulator, move it into a pure function in the core
+  first, as `sim/detect.py` was.
 - **Seeds are sacred.** Anything random takes an explicit seed, a seeded
   `random.Random` or a `numpy.random.Generator`. Never use the global random
   state.

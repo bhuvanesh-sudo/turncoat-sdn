@@ -73,17 +73,17 @@ python -c "import turncoat_sdn"
 
 | Subpackage | Holds | Owner | Status | Ported from (final-year project) |
 |---|---|---|---|---|
-| `sim/` | Seeded discrete-event simulator, scenarios, run metrics, hook protocols; from v0.3 the IoT clients and the admission check (`admission.py`) | bv | v0.1 | `evaluation/baseline.py`; `admission.py` from `security/authenticator.py` (`IdentityBinding`, no cipher) |
+| `sim/` | Seeded discrete-event simulator, scenarios, run metrics, hook protocols; from v0.3 the IoT clients and the admission check (`admission.py`); from v1.0 the per-poll detection step (`detect.py`), shared with the live backend | bv | v0.1 | `evaluation/baseline.py`; `admission.py` from `security/authenticator.py` (`IdentityBinding`, no cipher) |
 | `trust/` | Latency tell | arj | v0.1 | `controller/flow_monitor.py` (two functions only) |
 | `trust/` | Trust calculator, edge selector, thresholds, anomaly gate | ash | v0.1 | `trust_engine/trust_calculator.py`, `contracts/trust_update.py`, `controller/edge_selector.py`, `contracts/thresholds.py` |
 | `strategies/` | `random`, `round_robin`, `least_conn`, `no_trust`, `zt_sdn` behind one interface | arv | planned, v0.1 | `evaluation/baseline.py` |
-| `events/` | Event schema 1.0, JSONL writer and reader, validator (see `event-format.md`) | arj | v0.2 | `controller/event_bus.py` (JSONL part), `evaluation/nfr_report.load_events` |
+| `events/` | Event schema 1.0, JSONL writer and reader, validator (see `event-format.md`); from v1.0 the converter for the final-year controller's live recordings (`live.py`) | arj | v0.2 | `controller/event_bus.py` (JSONL part), `evaluation/nfr_report.load_events` |
 | `scoring/` | Attack classifier and attack scorer | ash | v0.2 | `controller/attack_classifier.py`, `evaluation/attack_report.py` |
 | `scoring/` | NFR, interval and availability scorers | arv | planned, v0.2 | `evaluation/nfr_report.py`, `interval_report.py`, `availability_report.py` |
 | `attacks/` | The `ServerAttack` and `ClientAttack` interfaces with a `start_s` onset, and one profile per attack | ash and everyone | v0.3 | The attacker branches of `evaluation/baseline.py`, onset logic from `simulation/node_agent.py`, the spoofer from `simulation/iot_client.py` |
 | `stats/` | Paired Wilcoxon with Holm, bootstrap CIs, replicate aggregator | arv, bv, arj | planned, v0.4 | `evaluation/stats.py` |
-| `cli/` | The `turncoat` command (`run`, `validate`, `score`; from v0.4 `replicate`, `compare` and `plot`) and the five strategies as simulator routers | jv | v0.2 | `evaluation/baseline.py` (routers) |
-| `backends/mininet/` | Optional live testbed (outside the core package) | bv | planned, v1.0 | `simulation/node_agent.py`, `iot_client.py`, `topology.py` |
+| `cli/` | The `turncoat` command (`run`, `validate`, `score`; from v0.4 `replicate`, `compare` and `plot`; from v1.0 `convert`) and the five strategies as simulator routers | jv | v0.2 | `evaluation/baseline.py` (routers) |
+| `backends/mininet/` | Optional live testbed (outside the core package): `turncoat_mininet` node agent, IoT client, live controller, topology and runner | bv | v1.0 | `simulation/node_agent.py`, `topology.py`, `addressing.py`, the client half of `iot_client.py` |
 
 ### Dependency rules
 
@@ -119,8 +119,10 @@ upward, and nothing in the core imports a backend.
 3. **Shared logic has one home.** When the live controller and the simulator
    need the same decision, it lives in a pure function in the core, and both
    call it. The latency tell is the first example: the live monitor and the
-   simulator called one copy in the final-year project, and when the Mininet
-   backend lands in v1.0 it imports the same function from `trust`.
+   simulator called one copy in the final-year project, and the Mininet
+   backend (v1.0) imports the same function from `trust`. It also calls the
+   simulator's own detection step, `sim.detect_anomalies`, and runs the core
+   attack classes inside its node agents, so no decision exists twice.
 4. **Data flows one way after a run.** From v0.2, runs produce `events.jsonl`,
    `scoring` reads it, and `stats` reads scores. Nothing upstream depends on
    anything downstream.

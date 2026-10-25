@@ -112,25 +112,6 @@ a skewed distribution, the 95% interval covers the true mean between 88% and
 
 ## Paired tests
 
-*To be written by the owner with the paired Wilcoxon signed-rank test and Holm
-correction in v0.4.* `turncoat compare` reads the results file and runs it.
-
-## Known limits
-
-- **The percentile bootstrap runs narrow at small n.** At 30 runs its
-  coverage is close to nominal; at 5 runs it is noticeably below. Thirty
-  seeds is the default for that reason.
-- **Overlapping intervals are not a test.** Two intervals that overlap can
-  still hide a real, paired difference. Use the paired test for that.
-- **One interval per metric, no correction across them.** With ten metrics
-  at 95% each, the chance that at least one misses its true mean is about
-  40%. The Holm correction is for the tests, not the intervals.
-
-See also: [Paired Benchmark Statistics](paired-statistics.md).
-
-
-## Paired tests
-
 Paired Wilcoxon signed-rank testing and Holm-Bonferroni p-value correction
 are implemented in `stats/paired.py` and exported from `turncoat_sdn.stats`.
 See [Paired Benchmark Statistics](paired-statistics.md) for the API, examples,
