@@ -288,11 +288,25 @@ python examples/custom_attack.py
 ```
 
 It finds that the slowpoke costs SLO violations under every strategy and is
-never quarantined, because nothing in it looks like an attack. The
-walk-through, and how to plug in your own strategy or score a recording from
-your own system (`turncoat convert` turns the final-year controller's
-recordings into the shared format), are in
-[docs/extending.md](docs/extending.md).
+never quarantined, because nothing in it looks like an attack.
+
+A new strategy is a small router: given each server's trust, claimed load,
+poll RTT and anomaly level, pick one.
+[`examples/custom_strategy.py`](examples/custom_strategy.py) writes *gated
+round robin*, round robin that skips any server the trust floor or anomaly
+gate holds out, and runs it against `zt_sdn` on the same seeds. Your own
+system needs no code from here at all: write `events.jsonl` in the shared
+format and `turncoat score` grades it.
+[`examples/score_outside_recording.py`](examples/score_outside_recording.py)
+does that with a toy controller written in plain Python, and `turncoat
+convert` turns the final-year controller's recordings into the format:
+
+```bash
+python examples/custom_strategy.py
+python examples/score_outside_recording.py
+```
+
+The walk-through for all three is in [docs/extending.md](docs/extending.md).
 
 ## Release plan
 
@@ -318,7 +332,7 @@ turncoat-sdn/
 |   |-- stats/        # descriptive, bootstrap CIs, results file, Wilcoxon + Holm
 |   `-- cli/          # turncoat run / validate / score / replicate / compare / plot
 |-- backends/mininet/ # optional live testbed on Mininet, package turncoat_mininet (v1.0)
-|-- examples/         # runnable examples: a custom attack
+|-- examples/         # a custom attack, a custom strategy, an outside recording
 |-- docs/             # documentation set; figures/ holds the README figures
 |-- tests/
 `-- .github/          # CI workflow, PR and issue templates

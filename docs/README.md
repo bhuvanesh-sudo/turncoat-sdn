@@ -30,7 +30,6 @@ Pages appear here as their release lands. As of v1.0 these exist:
 `simulator.md`, `event-format.md`, `scoring.md`, `cli.md`,
 `architecture.md`, `concepts.md`, `trust-model.md`, `strategies.md`,
 `attacks.md`, `benchmark-statistics.md`, `statistics.md`,
-`paired-statistics.md`, `results.md`, `extending.md` (custom attacks and your
-own system so far), `../INSTALL.md` (with its Mininet section from v1.0), `../backends/mininet/README.md`, `../README.md` and
+`paired-statistics.md`, `results.md`, `extending.md`, `../INSTALL.md` (with its Mininet section from v1.0), `../backends/mininet/README.md`, `../README.md` and
 `../CONTRIBUTING.md`. Each attack's entry in `attacks.md` is written by its
 author.

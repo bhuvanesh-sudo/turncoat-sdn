@@ -13,8 +13,8 @@ stale.
 | You have | You write | Example | Section |
 |---|---|---|---|
 | A new way for a node to turn | A `ServerAttack` or `ClientAttack` subclass | `examples/custom_attack.py` | [Your own attack](#your-own-attack) |
-| A new way to route tasks | A strategy | *v1.0, arv* | [Your own strategy](#your-own-strategy) |
-| A system of your own | An `events.jsonl` recording | *v1.0, arv and arj* | [Your own system](#your-own-system) |
+| A new way to route tasks | A router factory | `examples/custom_strategy.py` | [Your own strategy](#your-own-strategy) |
+| A system of your own | An `events.jsonl` recording | `examples/score_outside_recording.py` | [Your own system](#your-own-system) |
 
 ## Why it exists
 
@@ -153,7 +153,110 @@ scenario that `turncoat run --scenario`, `turncoat replicate` and
 
 ## Your own strategy
 
-*To be written by arv in v1.0, with `examples/` code for a custom strategy.*
+A strategy decides which server gets each task. The simulator takes it as a
+**router factory**: a function `factory(n, rng)` that it calls once per run
+with the number of servers and the run's own seeded random stream, and that
+returns an object with one method. The five built-in strategies are factories
+of exactly this shape, in `turncoat_sdn.cli.routers.STRATEGIES`.
+
+### 1. Write the strategy
+
+[`examples/custom_strategy.py`](../examples/custom_strategy.py) writes one in
+49 lines of code. *Gated round robin* keeps round robin's strict cycle, but
+skips any server that the trust floor or the anomaly gate holds out, the two
+rails `zt_sdn` quarantines with:
+
+```python
+from turncoat_sdn import trust
+
+FLOOR, GATE = trust.DEFAULT_ISOLATION_THRESHOLD, trust.DEFAULT_ANOMALY_GATE
+
+
+def gated_round_robin(n, rng):
+    class GatedRoundRobin:
+        cursor = 0
+
+        def choose(self, scores, claimed_cpu, rtt_ms, anomaly):
+            for k in range(n):
+                i = (self.cursor + k) % n
+                if scores[i] >= FLOOR and anomaly[i] < GATE:
+                    self.cursor = i + 1
+                    return i
+
+    return GatedRoundRobin()
+```
+
+`choose` sees the controller's view at the moment a task arrives, one value
+per server: trust score, claimed load (0 to 1), measured poll RTT in
+milliseconds, and smoothed anomaly level (0 to 1). It returns the index of
+the chosen server, or `None` to refuse the task, which counts as a failure.
+Here `None` comes from falling off the end of the loop when every server is
+held out. The exact protocol is `turncoat_sdn.sim.Router`.
+
+### 2. Run it
+
+Pass the factory to the simulator exactly as a built-in strategy is passed,
+with the same trust model and latency tell, so it sees the controller view
+every other strategy sees:
+
+```python
+from turncoat_sdn.events import EventList
+from turncoat_sdn.sim import simulate
+
+recording = EventList(backend="sim", seed=1, strategy="gated_rr", scenario="both")
+hooks = {"trust": trust.SimTrustModel, "latency_tell": trust.latency_tell, "recorder": recording}
+simulate(gated_round_robin, "both", 1, name="gated_rr", **hooks)
+```
+
+The same seed gives your strategy the same arrivals, service demands and
+attackers as every built-in one, so runs pair seed by seed. Score each
+recording with `turncoat_sdn.cli.score.score_recording`, as for an attack.
+
+### 3. Compare it
+
+The example runs it against `zt_sdn` and `round_robin` on 10 paired seeds of
+`both` (a Sybil and a blackhole) and tests every gap with
+`turncoat_sdn.stats.paired_wilcoxon`:
+
+```
+$ python examples/custom_strategy.py
+gated_rr against two built-ins on 'both' (a Sybil and a blackhole), 10 seeds
+
+  slo_violation_rate  gated_rr  8.95%  vs  zt_sdn      12.37%  (Wilcoxon p = 0.0020)
+  slo_violation_rate  gated_rr  8.95%  vs  round_robin 23.61%  (Wilcoxon p = 0.0020)
+  failure_rate        gated_rr  0.30%  vs  zt_sdn       0.09%  (Wilcoxon p = 0.0020)
+  failure_rate        gated_rr  0.30%  vs  round_robin 12.09%  (Wilcoxon p = 0.0020)
+```
+
+With 10 pairs, p = 0.0020 is the smallest a two-sided Wilcoxon test can give:
+every one of the ten seeds went the same way. The gates alone remove almost
+every failure that plain round robin suffers, because a quarantined attacker
+gets no more tasks. More surprising, the gated cycle has fewer SLO violations
+than `zt_sdn` on every seed, and more failures. A likely reason for the first
+is the load staleness described in
+[simulator.md](simulator.md#known-limits): `zt_sdn` weighs the load each
+server reported at the last poll, so between polls it keeps favouring the
+server that looked idlest, while the cycle spreads work evenly. A likely
+reason for the second is that EdgeScore already steers away from a server
+whose trust is falling, before the gate closes, while the cycle keeps
+sending it its turn. Whichever it is, it is a question this benchmark can
+now ask.
+
+`python examples/custom_strategy.py --record gated.jsonl` also writes one
+run to a file for `turncoat validate` and `turncoat score`.
+
+### Rules your strategy must follow
+
+- **Draw randomness only from `rng`.** It is the run's own selection stream;
+  anything else breaks pairing across strategies.
+- **Keep per-run state on the router object**, not at module level. The
+  factory is called once per run, and runs must not leak into each other.
+- **Do not keep or change the four sequences.** They are live views of the
+  controller's state.
+
+`tests/examples/test_custom_strategy.py` checks the router's choices, checks
+the comparison seed by seed, runs the example as a script, and fails if it
+grows past 50 lines of code.
 
 ## Your own system
 
@@ -215,17 +318,83 @@ file it cannot convert safely. The rules are in
 
 ### A recording from an outside system
 
-*To be written by arv in v1.0, with an `examples/` script that scores a
-recording from an outside system.*
+Your system does not need turncoat-sdn to record. It needs to write the
+lines in [event-format.md](event-format.md) to a file, in any language.
+[`examples/score_outside_recording.py`](../examples/score_outside_recording.py)
+shows it end to end. A toy controller, standing in for yours, imports
+nothing from this package and writes plain JSON with the standard library:
+three servers, round-robin routing, and a check that quarantines a server
+once all of its last five tasks have timed out. Its `srv3` turns into a
+blackhole 20 seconds in. Its file starts like this:
+
+```
+{"type": "header", "schema_version": "1.0", "backend": "live", "strategy": "toy_rr"}
+{"type": "topology", "ts": 0.0, "graph": {"nodes": [{"id": "srv1", "kind": "server", "attack": "none"}, {"id": "srv2", "kind": "server", "attack": "none"}, {"id": "srv3", "kind": "server", "attack": "blackhole", "attack_start_s": 20.0}], "links": []}}
+{"type": "route", "ts": 0.1, "task": 1, "chosen": "srv1"}
+{"type": "route", "ts": 0.2, "task": 2, "chosen": "srv2"}
+{"type": "report", "ts": 0.28, "task": 1, "node": "srv1", "latency_ms": 180.0, "status": "success"}
+```
+
+What a recording needs, so the scorers can grade it:
+
+| Line | Why |
+|---|---|
+| `header` first, with `schema_version` `"1.0"` and `backend` | So a reader knows what it is reading. Use `live` for anything that is not the simulator |
+| `topology` second, with every server's `attack` and, for attackers, `attack_start_s` | The ground truth. Detection latency is measured from the onset |
+| `route` and `report` for every task | Service: availability, SLO violations, latency, traffic to attackers |
+| `anomaly` with `signals`, and `node_status` once per check | What the attack classifier replays to name each attacker. `packet_drop` and `latency_tell` are the signal names it knows |
+| `quarantine` | When each server was cut off |
+
+Then turncoat-sdn grades it exactly as it grades a simulated run:
+
+```
+$ python examples/score_outside_recording.py
+outside.jsonl: valid, schema 1.0, 1302 lines
+outside.jsonl  (live backend, strategy toy_rr)
+
+Service
+  Tasks offered              600
+  Completed                  593   98.83% availability
+  Failed                       7   1.17%
+  SLO violations           1.17%   deadline 500 ms
+  Latency, mean / p95      180.0   / 180.0 ms
+  Routed to attackers      1.17%
+
+Attackers
+  srv3     blackhole  named correctly as blackhole
+           detected 2.0 s after onset
+           flagged for quarantine 2.0 s after onset; no traffic after that
+
+Detection: 1 of 1 attackers named correctly, 1 flagged, 1 cut off; 0 of 2 honest subjects mislabelled, 0 flagged.
+```
+
+`turncoat validate outside.jsonl` and `turncoat score outside.jsonl` print
+the same. If validation fails, the report names each line and field to fix.
+
+The classifier judges the evidence your system recorded, not what it
+concluded. With a looser rule, quarantining `srv3` as soon as more than 40%
+of its last ten tasks had timed out, the toy's `packet_drop` signal stayed
+near 0.5, below the classifier's blackhole bar of 0.85, and the scorer
+called `srv3` "right family as grayhole": cut off in time, but on evidence
+that could not tell a blackhole from a grayhole. Record the signal strengths
+your detector really saw, and the score tells you whether they were enough.
+
+`tests/examples/test_score_outside_recording.py` checks that the toy
+controller imports nothing from turncoat-sdn, that its file validates and is
+byte-for-byte reproducible, that `srv3` is named, and that the script and
+`turncoat score` agree.
 
 ## Known limits
 
 - A custom attack can change what a server serves and reports, or what an
   IoT client sends and claims. It cannot change the network itself: links,
   switches and the controller are the simulator's.
-- `turncoat replicate` and `turncoat compare` run built-in scenarios only.
-  Until an attack is in the catalogue, compare it over seeds in Python, as
-  the example does.
+- `turncoat replicate` and `turncoat compare` run built-in scenarios and
+  strategies only. Until an attack or strategy is in the catalogue, compare
+  it over seeds in Python, as the examples do.
+- A strategy is a simulator router. `turncoat_sdn.strategies.Strategy`
+  (`select(servers)`) is a separate interface with no simulator adapter yet,
+  so write a router factory to run a strategy in the simulator.
 - The classifier only names the attack families it knows. A new family is
   scored as missed until the classifier learns a rule for it.
 - A live run is scored on the same metrics as a simulated one, but its
