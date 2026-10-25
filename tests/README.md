@@ -47,6 +47,9 @@ only `test_live_mininet.py` is `live`.
 | `cli/test_replicate.py` | `turncoat replicate`: one row per paired run equal to `run` then `score`, every metric printed with an interval, the summary CSV, the same file for the same arguments, `--onset`, usage errors, and that the strategy benchmark runs every scenario. |
 | `events/test_event_list.py` | `EventList`: a recording kept in memory equals the file read back. |
 | `sim/test_recording.py`, `sim/test_golden.py` | Also guard `sim/detect.py`, the detection step shared with the live backend from v1.0: moving it out of the event loop changed no number. |
+| `events/test_live.py` | **Live recordings**: `fyp_live_run.jsonl` (the final-year controller's shape) is invalid as written and valid once converted, every conversion rule and refusal, and simulated runs rewritten in that shape score identically once converted. |
+| `backends/mininet/tests/test_live_recording.py` | **The live recording check**: a loopback live run passes `turncoat validate` and `turncoat score` unchanged, its events carry every field a simulated run's do, and the IoT clients' outcomes arrive as `report` events. |
+| `cli/test_convert.py` | `turncoat convert`: converts, validates and points to `score`, header options, the converted fixture scores with the attacker named, refusals and exit codes. |
 
 ## Porting tests from the final-year project
 
