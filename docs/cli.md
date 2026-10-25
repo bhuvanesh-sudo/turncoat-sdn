@@ -13,7 +13,7 @@ the trust model, the event format and the scorers into one workflow:
 | `turncoat validate` | Checks recordings against the event schema | v0.2 |
 | `turncoat score` | Grades a recording: who was caught, how fast, at what cost | v0.2 |
 | `turncoat replicate` | Runs many seeds per strategy and scenario into one results CSV, with a mean and confidence interval on every metric | v0.4 |
-| `turncoat compare` | Compares strategies on matched seeds using paired Wilcoxon tests and Holm-adjusted p-values; exports a CSV report | v0.4 |
+| `turncoat compare` | Compares strategies on matched seeds: a table of every metric with a paired bootstrap interval, Wilcoxon p-value and Holm-adjusted p-value; exports a CSV report | v0.4 |
 
 ## Why it exists
 
@@ -255,80 +255,116 @@ in [event-format.md](event-format.md#results-files), the intervals in
 
 ### `turncoat compare`
 
-**Owner:** arv · **Written in:** v0.4
-
-**What it is**
-
-The `turncoat compare` command compares strategies using paired Wilcoxon
-signed-rank tests on results from matched seeds. It applies Holm's method
-to adjust p-values across the comparison family and exports a CSV report.
-
-**Why it exists**
-
-Using matched seeds helps reduce the influence of random variation.
-Paired tests assess observed differences, while Holm correction controls
-the family-wise error rate across multiple comparisons.
-
-**How to use it**
-
-Run comparisons with the default strategies, scenarios, and metrics:
-
 ```bash
-turncoat compare results.csv
+turncoat compare RESULTS.csv [--strategies LIST] [--scenarios LIST] [--metrics LIST]
+                 [--alpha LEVEL] [--alternative two-sided|less|greater]
+                 [--confidence LEVEL] [--resamples N] [-o PATH] [-q]
 ```
 
-Select the strategies, scenarios, and metrics:
+`replicate` puts an interval on each strategy's mean. `compare` answers the
+question a reader actually asks: is the gap between two strategies real, or
+one lucky set of workloads? It reads a results file, pairs every two chosen
+strategies run for run on matched seeds, and prints one table per scenario
+and pair, with a row per metric:
 
-```bash
-turncoat compare results.csv \
-  --strategies zt_sdn,round_robin \
-  --scenarios sybil,grayhole \
-  --metrics slo_violation_rate,throughput \
-  --alpha 0.05 \
-  --alternative two-sided \
-  --output comparisons.csv
 ```
+$ turncoat replicate --strategies zt_sdn,least_conn --scenarios both,clean --seeds 30 -q
+$ turncoat compare results.csv
+both: zt_sdn vs least_conn  (30 paired seeds)
+                            zt_sdn   least_conn         Difference [95% CI]         p    Holm p   Better
+  SLO violations (%)         12.09        38.19     -26.10 [-27.11, -25.12]   <0.0001   <0.0001   zt_sdn
+  Failed (%)                  0.10        12.48     -12.37 [-12.95, -11.81]   <0.0001   <0.0001   zt_sdn
+  Routed to attackers (%)     0.36        15.34     -14.98 [-15.98, -13.96]   <0.0001   <0.0001   zt_sdn
+  Mean latency (ms)          243.6        461.1     -217.5 [-229.5, -206.1]   <0.0001   <0.0001   zt_sdn
+  p95 latency (ms)           684.0       1696.8   -1012.8 [-1060.4, -962.7]   <0.0001   <0.0001   zt_sdn
+  Load Gini                  0.257        0.134     +0.123 [+0.113, +0.133]   <0.0001   <0.0001   least_conn
+  Time to isolate (s)          3.4          3.0           +0.4 [+0.3, +0.6]    0.0003    0.0019   least_conn
+  Attackers named (%)       100.00       100.00        +0.00 [+0.00, +0.00]    1.0000    1.0000   -
+  Detection latency (s)        3.2          3.1           +0.1 [-0.0, +0.3]    0.0377    0.1887   -
+  Honest mislabelled (%)      0.00         0.00        +0.00 [+0.00, +0.00]    1.0000    1.0000   -
+
+clean: zt_sdn vs least_conn  (30 paired seeds)
+  ...
+
+Not compared, because no seed measured them for both strategies:
+  clean: time_to_isolate_s, detection_rate, mean_detection_latency_s
+
+Difference: first strategy minus second on each seed, averaged, with a paired
+  percentile bootstrap interval (10,000 resamples, seed 0).
+p: two-sided Wilcoxon signed-rank test. Holm p: adjusted across all 17 tests above.
+Better: the better strategy when Holm p <= 0.05; lower is better except for attackers named.
+
+Wrote comparisons.csv (17 comparisons, 12 significant at alpha=0.05)
+```
+
+Under a Sybil and a blackhole, `zt_sdn` cuts SLO violations by 26
+percentage points and sends 15 points less traffic to the attackers, and
+every one of those intervals sits far from zero. It loses on load balance and
+isolates 0.4 s later, because shunning attackers leaves honest servers
+unevenly loaded. Detection latency shows Holm at work: a raw p of 0.038 looks
+significant, but corrected across the 17 tests it is 0.19, and its interval
+touches zero, so there is no winner.
 
 | Option | Default | Meaning |
 |---|---|---|
-| `RESULTS.csv` | Required | Input CSV containing replicate results |
-| `--strategies LIST` | All supported strategies | Comma-separated strategy names |
-| `--scenarios LIST` | All supported scenarios | Comma-separated scenario names |
-| `--metrics LIST` | All supported metrics | Comma-separated metric names |
-| `--alpha LEVEL` | `0.05` | Significance level strictly between 0 and 1 |
-| `--alternative` | `two-sided` | Alternative hypothesis: `two-sided`, `less`, or `greater` |
-| `-o`, `--output PATH` | `comparisons.csv` | Destination for the report |
-| `-q`, `--quiet` | Off | Suppress successful-run messages |
+| `RESULTS.csv` | required | A results file from `turncoat replicate` (see [event-format.md](event-format.md#results-files)) |
+| `--strategies LIST` | every one in the file | Comma-separated. Every pair is compared, so three strategies give three blocks per scenario. |
+| `--scenarios LIST` | every one in the file | Comma-separated |
+| `--metrics LIST` | all ten | Any of the results file's metric columns, such as `slo_violation_rate,malicious_share` |
+| `--alpha LEVEL` | `0.05` | Significance level for **Better** and the report's `significant` column |
+| `--alternative` | `two-sided` | `less` or `greater` test whether the first strategy's values are lower or higher |
+| `--confidence LEVEL` | `0.95` | Coverage of the difference intervals |
+| `--resamples N` | `10000` | Bootstrap resamples per interval |
+| `-o`, `--output PATH` | `comparisons.csv` | The comparison report. Folders are created; an existing file is overwritten. |
+| `-q`, `--quiet` | off | Print nothing unless something goes wrong. The report is still written. |
 
-**How it works inside**
+#### Reading the table
 
-1. Reads the replicate results CSV.
-2. Selects the requested strategies, scenarios, and metrics.
-3. Compares strategy pairs using matched-seed Wilcoxon signed-rank tests.
-4. Applies Holm correction across the generated comparison family.
-5. Writes the results to the requested CSV file.
+| Column | What it is |
+|---|---|
+| *first*, *second* | Each strategy's mean over the seeds where both measured the metric. Rates are percentages. |
+| Difference [95% CI] | First minus second on each seed, averaged, with a paired percentile bootstrap interval from `turncoat_sdn.stats.bootstrap.paired_bootstrap_ci`. Rates are in percentage points. |
+| p | Wilcoxon signed-rank test on the paired differences, from `turncoat_sdn.stats.paired_wilcoxon`. A metric on which the two never differ gets `1.0000`. |
+| Holm p | `p` after Holm's correction across **every test in the table**: all metrics, pairs and scenarios together |
+| Better | When Holm p is at most `--alpha`, the strategy with the better mean. Lower is better for every metric except attackers named. Otherwise `-`. |
 
-The report includes the compared strategies, scenario, metric, test statistics,
-raw p-values, adjusted p-values, and significance information.
+A metric label ending in `, N pairs` was blank on some seeds (a run with no
+attacker named has no detection latency), so its test used fewer pairs than
+the block's seeds.
 
-**Integration status**
+Why paired, why Wilcoxon and why Holm are in
+[statistics.md](statistics.md) and [paired-statistics.md](paired-statistics.md).
+One consequence is worth knowing before you choose `--seeds`: with N pairs
+the smallest two-sided Wilcoxon p is 2/2^N. Four seeds can never get below
+0.125, so `compare` on a quick four-seed run reports no winner however large
+the gap. Thirty seeds leave plenty of room, even after Holm.
 
-The command is registered in the CLI and uses the existing statistics API,
-results reader, and comparison report writer.
+#### Metrics that cannot be compared
 
-**Known limits**
+Some metrics are blank on every run of a scenario: there is no time to
+isolate or detection rate in `clean`, where nobody attacks. A test with no
+pairs is not a test, so `compare` leaves that scenario and metric out of the
+Holm family and lists it under the table, rather than refusing the whole
+comparison.
 
-- Both strategies need suitable results for matched seeds.
-- Missing strategies, scenarios, or usable comparison data can cause failure.
-- The significance threshold must be strictly between 0 and 1.
-- Input, comparison, and output errors are reported through the exit status.
+#### The report
+
+`-o` writes one row per test with the columns in
+`turncoat_sdn.stats.COMPARISON_FIELDS`: the two strategies, scenario, metric,
+pair counts, Wilcoxon statistic, raw and Holm-adjusted p-values, mean and
+median difference, alternative, alpha and whether it was significant. The
+table and the report come from the same tests, in the same order. For the
+intervals and effect sizes as JSON, use `turncoat evaluate`.
+
+`compare` reads only the results file, so the same file gives the same table
+and report every time.
 
 ### Exit status
 
 | Code | Meaning |
 |---|---|
 | 0 | Done |
-| 1 | The answer is no: a recording is invalid, or has no ground truth to score |
+| 1 | The answer is no: a recording is invalid or has no ground truth to score, or a results file is invalid or cannot be compared |
 | 2 | A file could not be read or written, or the options were wrong |
 
 ## How it works inside
@@ -344,7 +380,7 @@ results reader, and comparison report writer.
 | `validate.py` | A front end to `turncoat_sdn.events.validate` |
 | `score.py` | Service totals from events, then the NFR, availability and attack scorers |
 | `replicate.py` | `replicate_rows`, which runs and scores the paired grid into results rows, and the interval table |
-| `compare.py` | The `turncoat compare` command, argument parsing, paired comparisons, and report generation |
+| `compare.py` | `build_report`, which picks the tests and runs them through `turncoat_sdn.stats` as one Holm family, and the comparison table |
 | `common.py` | The exit codes |
 
 The CLI is the one place allowed to wire packages together (see
@@ -361,8 +397,13 @@ golden files from the final-year project, and they match to the last digit.
 - The routers live in `cli/routers.py` because `turncoat_sdn.strategies`
   does not yet speak the simulator's router interface. When it does, the CLI
   should use it and this table should move.
-- `score` grades one recording, and `replicate` puts intervals on many.
-  Paired p-values with Holm correction are available through `turncoat compare`; comparisons require suitable results for matched seeds.
+- `score` grades one recording, `replicate` puts intervals on many, and
+  `compare` tests the differences. `compare` needs every compared strategy
+  run on the same seeds in each scenario, which `replicate` guarantees; a
+  results file stitched together from different seed ranges is refused.
+- `compare` tests every pair. Five strategies on seven scenarios is 700
+  tests in one Holm family and 70 tables; pass `--strategies` and
+  `--scenarios` to ask a narrower question with more power.
 - `replicate` takes no `--attack` or `--identity-binding`: it runs the
   built-in scenarios as they are, so every row is a scenario anyone can
   reproduce by name. It also runs one run at a time, on one core.
