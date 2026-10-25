@@ -4,14 +4,14 @@ build-backend = "hatchling.build"
 
 [project]
 name = "turncoat-sdn-mininet"
-version = "1.0.0.dev0"
+version = "1.0.0"
 description = "Optional live backend for turncoat-sdn: the benchmark on a real network under Mininet."
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
 # Mininet and Open vSwitch come from the system package manager, not PyPI;
 # see INSTALL.md. Nothing else is needed beyond the core package.
-dependencies = ["turncoat-sdn"]
+dependencies = ["turncoat-sdn>=1.0"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["turncoat_mininet"]
