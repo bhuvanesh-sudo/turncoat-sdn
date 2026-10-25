@@ -41,6 +41,20 @@ fits (Added, Changed, Fixed, Removed).
   It raises SLO violations under every strategy (Wilcoxon p = 0.002 over 10
   seeds) and is never quarantined. A test runs it as a script in CI and holds
   it under 50 lines; `docs/extending.md` with its custom-attack section (ash).
+- Custom strategy example, `examples/custom_strategy.py`: *gated round
+  robin*, round robin that skips any server the trust floor or anomaly gate
+  holds out, written as a simulator router factory in 49 lines of code and
+  compared with `zt_sdn` and `round_robin` over paired seeds of `both`. It
+  has fewer SLO violations than `zt_sdn` (8.95% against 12.37%) and far
+  fewer failures than round robin, every seed the same way (Wilcoxon
+  p = 0.002 over 10 seeds).
+- Outside-recording example, `examples/score_outside_recording.py`: a toy
+  controller that imports nothing from turncoat-sdn writes `events.jsonl`
+  with the standard library, and turncoat-sdn validates it and names its
+  blackhole 2.0 s after onset, as for a simulated run.
+- Both examples run as scripts in CI (`tests/examples/`), and
+  `docs/extending.md` now covers your own strategy and a recording from an
+  outside system, with what a recording must hold to be scored.
 - Cross-scenario robustness rankings in `turncoat_sdn.stats.robustness`:
   `rank_strategies(rows, metric=...)` averages each strategy over its seeds
   in every scenario of a results file, ranks the strategies within each
