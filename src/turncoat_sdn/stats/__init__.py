@@ -62,6 +62,7 @@ __all__ = [
     "COMPARISON_FIELDS",
     "comparison_rows",
     "write_comparison_report",
+    "build_evaluation_report",
 ]
 
 from turncoat_sdn.stats.compare import (
@@ -69,6 +70,7 @@ from turncoat_sdn.stats.compare import (
     ComparisonReport,
     compare_strategies,
 )
+from turncoat_sdn.stats.evaluation import build_evaluation_report
 from turncoat_sdn.stats.paired import (
     PairedComparison,
     holm_adjust,

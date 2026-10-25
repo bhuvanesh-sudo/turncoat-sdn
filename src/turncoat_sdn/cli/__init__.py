@@ -28,7 +28,7 @@ import argparse
 from collections.abc import Sequence
 
 from turncoat_sdn import __version__
-from turncoat_sdn.cli import compare, replicate, run, score, validate
+from turncoat_sdn.cli import compare, evaluate, replicate, run, score, validate
 from turncoat_sdn.cli.common import EXIT_FAILED, EXIT_OK, EXIT_UNREADABLE
 
 PROG = "turncoat"
@@ -59,6 +59,7 @@ def build_parser() -> argparse.ArgumentParser:
     score.add_parser(commands)
     replicate.add_parser(commands)
     compare.add_parser(commands)
+    evaluate.add_parser(commands)
     return parser
 
 
