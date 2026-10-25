@@ -14,6 +14,7 @@ the trust model, the event format and the scorers into one workflow:
 | `turncoat score` | Grades a recording: who was caught, how fast, at what cost | v0.2 |
 | `turncoat replicate` | Runs many seeds per strategy and scenario into one results CSV, with a mean and confidence interval on every metric | v0.4 |
 | `turncoat compare` | Compares strategies on matched seeds: a table of every metric with a paired bootstrap interval, Wilcoxon p-value and Holm-adjusted p-value; exports a CSV report | v0.4 |
+| `turncoat plot` | Draws the comparison figure: one metric's mean and confidence interval for every strategy and scenario, as an SVG | v0.4 |
 
 ## Why it exists
 
@@ -359,12 +360,67 @@ intervals and effect sizes as JSON, use `turncoat evaluate`.
 `compare` reads only the results file, so the same file gives the same table
 and report every time.
 
+### `turncoat plot`
+
+```bash
+turncoat plot RESULTS.csv [--metric NAME] [--strategies LIST] [--scenarios LIST]
+              [--highlight STRATEGY] [--columns N] [--confidence LEVEL]
+              [--resamples N] [-o PATH] [-q]
+```
+
+A table gives the numbers; a figure shows the shape of a comparison at a
+glance. `plot` reads a results file and draws one metric as small
+multiples: a panel per scenario, a row per strategy, a dot at the mean over
+seeds and a line across its bootstrap confidence interval. The figures in the
+[README](../README.md#compare-strategies) are drawn by these two commands
+from the full 30-seed results file in [results.md](results.md):
+
+```
+$ turncoat plot results.csv -o docs/figures/slo-violations.svg
+Wrote docs/figures/slo-violations.svg (SLO violations (%))
+$ turncoat plot results.csv --metric malicious_share -o docs/figures/routed-to-attackers.svg
+Wrote docs/figures/routed-to-attackers.svg (Routed to attackers (%))
+```
+
+![Routed to attackers, mean over 30 seeds per strategy and scenario](figures/routed-to-attackers.svg)
+
+| Option | Default | Meaning |
+|---|---|---|
+| `RESULTS.csv` | required | A results file from `turncoat replicate` (see [event-format.md](event-format.md#results-files)) |
+| `--metric NAME` | `slo_violation_rate` | Any of the results file's ten metric columns, such as `malicious_share` or `detection_rate` |
+| `--strategies LIST` | every one in the file | Comma-separated; one row each, in this order |
+| `--scenarios LIST` | every one in the file | Comma-separated; one panel each, in this order |
+| `--highlight STRATEGY` | `zt_sdn` | The strategy drawn in colour; the rest are grey. `none` draws them all grey. |
+| `--columns N` | `4` | Panels per row |
+| `--confidence LEVEL` | `0.95` | Coverage of the intervals |
+| `--resamples N` | `10000` | Bootstrap resamples per interval |
+| `-o`, `--output PATH` | `comparison.svg` | The figure. Folders are created; an existing file is overwritten. |
+| `-q`, `--quiet` | off | Print nothing unless something goes wrong. The figure is still written. |
+
+#### Reading the figure
+
+Every panel shares one x-axis, starting at zero, so a gap between two dots
+means the same in every scenario. Each row is labelled with its strategy, so
+the colour is only there to pick one out; nothing depends on telling greys
+apart. The intervals are the ones `replicate` prints, from the same
+resamples and seed, so the figure and the table always agree. Over 30 seeds
+most of them are narrower than the dot and hidden behind it, which is itself
+the finding: the means are tight. A cell no run could measure, such as time
+to isolate in `clean`, reads `n/a`.
+
+The figure is a plain SVG with no plotting library behind it, so the core
+still needs only NumPy and SciPy. It follows the viewer's light or dark
+theme, every dot shows its `mean [low, high]` as a tooltip when the file is
+opened in a browser, and the same results file and options give the same
+bytes every time, so a figure in the repository can be checked against a
+fresh run.
+
 ### Exit status
 
 | Code | Meaning |
 |---|---|
 | 0 | Done |
-| 1 | The answer is no: a recording is invalid or has no ground truth to score, or a results file is invalid or cannot be compared |
+| 1 | The answer is no: a recording is invalid or has no ground truth to score, or a results file is invalid or cannot be compared or drawn |
 | 2 | A file could not be read or written, or the options were wrong |
 
 ## How it works inside
@@ -381,6 +437,7 @@ and report every time.
 | `score.py` | Service totals from events, then the NFR, availability and attack scorers |
 | `replicate.py` | `replicate_rows`, which runs and scores the paired grid into results rows, and the interval table |
 | `compare.py` | `build_report`, which picks the tests and runs them through `turncoat_sdn.stats` as one Holm family, and the comparison table |
+| `plot.py` | `render_figure`, which puts `turncoat_sdn.stats.bootstrap_metrics` intervals on one metric and writes the comparison figure as SVG |
 | `common.py` | The exit codes |
 
 The CLI is the one place allowed to wire packages together (see
@@ -404,6 +461,10 @@ golden files from the final-year project, and they match to the last digit.
 - `compare` tests every pair. Five strategies on seven scenarios is 700
   tests in one Holm family and 70 tables; pass `--strategies` and
   `--scenarios` to ask a narrower question with more power.
+- `plot` draws one metric per figure, as SVG only. For a PNG, open the SVG
+  in a browser or convert it with any SVG tool. It shows each strategy's
+  interval, not the paired difference; for whether a gap is real, read
+  `compare`.
 - `replicate` takes no `--attack` or `--identity-binding`: it runs the
   built-in scenarios as they are, so every row is a scenario anyone can
   reproduce by name. It also runs one run at a time, on one core.
