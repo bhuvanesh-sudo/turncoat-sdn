@@ -13,7 +13,7 @@ the trust model, the event format and the scorers into one workflow:
 | `turncoat validate` | Checks recordings against the event schema | v0.2 |
 | `turncoat score` | Grades a recording: who was caught, how fast, at what cost | v0.2 |
 | `turncoat replicate` | Runs many seeds per strategy and scenario into one results CSV, with a mean and confidence interval on every metric | v0.4 |
-| `turncoat compare` | Paired statistics over many seeds | v0.4 (planned) |
+| `turncoat compare` | Compares strategies on matched seeds using paired Wilcoxon tests and Holm-adjusted p-values; exports a CSV report | v0.4 |
 
 ## Why it exists
 
@@ -253,6 +253,76 @@ in [event-format.md](event-format.md#results-files), the intervals in
 [statistics.md](statistics.md#confidence-intervals), and a full run in
 [results.md](results.md).
 
+### `turncoat compare`
+
+**Owner:** arv · **Written in:** v0.4
+
+**What it is**
+
+The `turncoat compare` command compares strategies using paired Wilcoxon
+signed-rank tests on results from matched seeds. It applies Holm's method
+to adjust p-values across the comparison family and exports a CSV report.
+
+**Why it exists**
+
+Using matched seeds helps reduce the influence of random variation.
+Paired tests assess observed differences, while Holm correction controls
+the family-wise error rate across multiple comparisons.
+
+**How to use it**
+
+Run comparisons with the default strategies, scenarios, and metrics:
+
+```bash
+turncoat compare results.csv
+```
+
+Select the strategies, scenarios, and metrics:
+
+```bash
+turncoat compare results.csv \
+  --strategies zt_sdn,round_robin \
+  --scenarios sybil,grayhole \
+  --metrics slo_violation_rate,throughput \
+  --alpha 0.05 \
+  --alternative two-sided \
+  --output comparisons.csv
+```
+
+| Option | Default | Meaning |
+|---|---|---|
+| `RESULTS.csv` | Required | Input CSV containing replicate results |
+| `--strategies LIST` | All supported strategies | Comma-separated strategy names |
+| `--scenarios LIST` | All supported scenarios | Comma-separated scenario names |
+| `--metrics LIST` | All supported metrics | Comma-separated metric names |
+| `--alpha LEVEL` | `0.05` | Significance level strictly between 0 and 1 |
+| `--alternative` | `two-sided` | Alternative hypothesis: `two-sided`, `less`, or `greater` |
+| `-o`, `--output PATH` | `comparisons.csv` | Destination for the report |
+| `-q`, `--quiet` | Off | Suppress successful-run messages |
+
+**How it works inside**
+
+1. Reads the replicate results CSV.
+2. Selects the requested strategies, scenarios, and metrics.
+3. Compares strategy pairs using matched-seed Wilcoxon signed-rank tests.
+4. Applies Holm correction across the generated comparison family.
+5. Writes the results to the requested CSV file.
+
+The report includes the compared strategies, scenario, metric, test statistics,
+raw p-values, adjusted p-values, and significance information.
+
+**Integration status**
+
+The command is registered in the CLI and uses the existing statistics API,
+results reader, and comparison report writer.
+
+**Known limits**
+
+- Both strategies need suitable results for matched seeds.
+- Missing strategies, scenarios, or usable comparison data can cause failure.
+- The significance threshold must be strictly between 0 and 1.
+- Input, comparison, and output errors are reported through the exit status.
+
 ### Exit status
 
 | Code | Meaning |
@@ -274,6 +344,7 @@ in [event-format.md](event-format.md#results-files), the intervals in
 | `validate.py` | A front end to `turncoat_sdn.events.validate` |
 | `score.py` | Service totals from events, then the NFR, availability and attack scorers |
 | `replicate.py` | `replicate_rows`, which runs and scores the paired grid into results rows, and the interval table |
+| `compare.py` | The `turncoat compare` command, argument parsing, paired comparisons, and report generation |
 | `common.py` | The exit codes |
 
 The CLI is the one place allowed to wire packages together (see
@@ -291,7 +362,7 @@ golden files from the final-year project, and they match to the last digit.
   does not yet speak the simulator's router interface. When it does, the CLI
   should use it and this table should move.
 - `score` grades one recording, and `replicate` puts intervals on many.
-  Paired p-values, with Holm correction, are `turncoat compare` in v0.4.
+  Paired p-values with Holm correction are available through `turncoat compare`; comparisons require suitable results for matched seeds.
 - `replicate` takes no `--attack` or `--identity-binding`: it runs the
   built-in scenarios as they are, so every row is a scenario anyone can
   reproduce by name. It also runs one run at a time, on one core.
