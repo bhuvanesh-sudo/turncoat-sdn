@@ -125,3 +125,5 @@ correction in v0.4.* `turncoat compare` reads the results file and runs it.
 - **One interval per metric, no correction across them.** With ten metrics
   at 95% each, the chance that at least one misses its true mean is about
   40%. The Holm correction is for the tests, not the intervals.
+
+See also: [Paired Benchmark Statistics](paired-statistics.md).
