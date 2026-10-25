@@ -31,7 +31,15 @@ fits (Added, Changed, Fixed, Removed).
   p-value and the better strategy, with `--confidence` and `--resamples` for
   the intervals. Strategies and scenarios default to those in the results
   file. Tests, and the compare section of `docs/cli.md` (ash).
-
+- `turncoat plot` draws the comparison figure from a results file: one
+  metric as a panel per scenario and a row per strategy, each mean with the
+  bootstrap interval `replicate` prints, on one shared axis, with one
+  strategy highlighted (`--highlight`, default `zt_sdn`). It writes a
+  self-contained SVG with no plotting dependency that follows the viewer's
+  light or dark theme and is byte-for-byte reproducible. The README's new
+  "Compare strategies" section shows a real `compare` table and the figure,
+  drawn from the 30-seed results in `docs/results.md`, into `docs/figures/`;
+  tests, and the plot section of `docs/cli.md` (arj).
 
 ### Fixed
 
