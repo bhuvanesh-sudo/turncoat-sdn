@@ -2,13 +2,69 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import asdict
 from typing import Any
 
-from turncoat_sdn.stats.bootstrap import DEFAULT_CONFIDENCE, DEFAULT_RESAMPLES
+from turncoat_sdn.stats.bootstrap import (
+    DEFAULT_CONFIDENCE,
+    DEFAULT_RESAMPLES,
+    paired_bootstrap_ci,
+)
 from turncoat_sdn.stats.compare import compare_strategies
 from turncoat_sdn.stats.descriptive import summarize_metrics
+from turncoat_sdn.stats.paired import _metric_value
 from turncoat_sdn.stats.replicates import RESULT_METRICS
+
+
+def _paired_differences(
+    rows: list[dict[str, Any]],
+    strategy_a: str,
+    strategy_b: str,
+    scenario: str,
+    metric: str,
+) -> list[float]:
+    """Return validated, matched metric differences (A minus B)."""
+    selected: dict[str, dict[int, dict[str, Any]]] = {
+        strategy_a: {},
+        strategy_b: {},
+    }
+
+    # paired_wilcoxon performs the canonical validation first.
+    from turncoat_sdn.stats.paired import paired_wilcoxon
+
+    paired_wilcoxon(rows, strategy_a, strategy_b, scenario, metric)
+
+    for row in rows:
+        if row.get("scenario") != scenario:
+            continue
+        strategy = row.get("strategy")
+        if strategy in selected:
+            selected[strategy][row["seed"]] = row
+
+    differences = []
+    for seed in sorted(selected[strategy_a]):
+        value_a = _metric_value(selected[strategy_a][seed], metric)
+        value_b = _metric_value(selected[strategy_b][seed], metric)
+        if value_a is not None and value_b is not None:
+            differences.append(value_a - value_b)
+
+    return differences
+
+
+def _paired_cohens_dz(differences: list[float]) -> float | None:
+    """Calculate paired Cohen's dz; return None when undefined."""
+    if len(differences) < 2:
+        return None
+
+    mean = math.fsum(differences) / len(differences)
+    squared_deviations = math.fsum((value - mean) ** 2 for value in differences)
+    standard_deviation = math.sqrt(squared_deviations / (len(differences) - 1))
+
+    if standard_deviation == 0:
+        return None
+
+    return mean / standard_deviation
 
 
 def build_evaluation_report(
@@ -23,7 +79,7 @@ def build_evaluation_report(
     alpha: float = 0.05,
     alternative: str = "two-sided",
 ) -> dict[str, Any]:
-    """Combine per-group summaries, bootstrap intervals, and paired tests."""
+    """Combine summaries, paired tests, bootstrap intervals, and effect sizes."""
     if not metrics:
         raise ValueError("at least one metric is required")
 
@@ -54,9 +110,6 @@ def build_evaluation_report(
         alternative=alternative,
     )
 
-    # Attach a paired-bootstrap interval to each tested mean difference.
-    from turncoat_sdn.stats.bootstrap import paired_bootstrap_ci
-
     comparison_rows = []
     for item in comparisons.comparisons:
         comparison = item.comparison
@@ -70,6 +123,13 @@ def build_evaluation_report(
             resamples=resamples,
             seed=bootstrap_seed,
         )
+        differences = _paired_differences(
+            rows,
+            comparison.strategy_a,
+            comparison.strategy_b,
+            comparison.scenario,
+            comparison.metric,
+        )
         comparison_rows.append(
             {
                 **asdict(comparison),
@@ -78,6 +138,7 @@ def build_evaluation_report(
                 "paired_ci_low": interval.low,
                 "paired_ci_high": interval.high,
                 "paired_ci_confidence": confidence,
+                "paired_cohens_dz": _paired_cohens_dz(differences),
             }
         )
 

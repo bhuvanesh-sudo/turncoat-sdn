@@ -116,3 +116,21 @@ def test_paired_interval_rejects_invalid_resample_count(rows):
             "slo_violation_rate",
             resamples=0,
         )
+
+
+def test_paired_cohens_dz_known_value():
+    from turncoat_sdn.stats.evaluation import _paired_cohens_dz
+
+    assert _paired_cohens_dz([1.0, 2.0, 3.0]) == 2.0
+
+
+def test_paired_cohens_dz_returns_none_for_constant_differences():
+    from turncoat_sdn.stats.evaluation import _paired_cohens_dz
+
+    assert _paired_cohens_dz([2.0, 2.0, 2.0]) is None
+
+
+def test_paired_cohens_dz_returns_none_for_one_pair():
+    from turncoat_sdn.stats.evaluation import _paired_cohens_dz
+
+    assert _paired_cohens_dz([2.0]) is None
