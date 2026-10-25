@@ -40,6 +40,29 @@ fits (Added, Changed, Fixed, Removed).
   "Compare strategies" section shows a real `compare` table and the figure,
   drawn from the 30-seed results in `docs/results.md`, into `docs/figures/`;
   tests, and the plot section of `docs/cli.md` (arj).
+- Optional live backend in `backends/mininet/` (package `turncoat_mininet`):
+  the final-year project's node agent and topology ported onto the core.
+  Each server's agent runs a core `ServerAttack` built as the simulator
+  builds it, so turncoats keep their `start_s` onset live. A live controller
+  routes with the `turncoat run` strategies, updates `SimTrustModel`, detects
+  with the simulator's own detection step and records `events.jsonl` with
+  `EventWriter` (`"backend": "live"`), so `turncoat validate` and `score` read
+  live runs unchanged. `python -m turncoat_mininet.run` runs on Mininet, or on
+  loopback with no Mininet or root. The topology is seeded, uses standalone
+  Open vSwitch switches with no OpenFlow controller, and checks reachability
+  with a linear ping sample. Every process starts against one shared `t0`,
+  and a run whose agents or clients are not ready by then stops instead of
+  recording skewed onsets (`--warmup`). Tests run without Mininet; one `live`
+  test needs the testbed. The Mininet section of `INSTALL.md` and
+  `backends/mininet/README.md`.
+
+### Changed
+
+- The simulator's per-poll detection (latency tell, timeout-rate tell,
+  anomaly smoothing, exclusion test) moved out of the event loop into
+  `turncoat_sdn.sim.detect` as `detect_anomalies` and `is_excluded`, so the
+  live backend runs the same code. No number changes; the golden files pass.
+- `pytest` from the repository root also collects `backends/mininet/tests`.
 
 ### Fixed
 
