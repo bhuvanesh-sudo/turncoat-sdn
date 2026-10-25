@@ -63,6 +63,7 @@ __all__ = [
     "comparison_rows",
     "write_comparison_report",
     "build_evaluation_report",
+    "rank_strategies",
 ]
 
 from turncoat_sdn.stats.compare import (
@@ -81,3 +82,4 @@ from turncoat_sdn.stats.report import (
     comparison_rows,
     write_comparison_report,
 )
+from turncoat_sdn.stats.robustness import rank_strategies
