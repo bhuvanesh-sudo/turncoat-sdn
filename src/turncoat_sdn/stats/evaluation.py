@@ -54,6 +54,33 @@ def build_evaluation_report(
         alternative=alternative,
     )
 
+    # Attach a paired-bootstrap interval to each tested mean difference.
+    from turncoat_sdn.stats.bootstrap import paired_bootstrap_ci
+
+    comparison_rows = []
+    for item in comparisons.comparisons:
+        comparison = item.comparison
+        interval = paired_bootstrap_ci(
+            rows,
+            comparison.strategy_a,
+            comparison.strategy_b,
+            comparison.scenario,
+            comparison.metric,
+            confidence=confidence,
+            resamples=resamples,
+            seed=bootstrap_seed,
+        )
+        comparison_rows.append(
+            {
+                **asdict(comparison),
+                "adjusted_p_value": item.adjusted_p_value,
+                "significant": item.significant,
+                "paired_ci_low": interval.low,
+                "paired_ci_high": interval.high,
+                "paired_ci_confidence": confidence,
+            }
+        )
+
     return {
         "schema_version": 1,
         "configuration": {
@@ -68,14 +95,7 @@ def build_evaluation_report(
             "correction": "Holm",
         },
         "summaries": summaries,
-        "comparisons": [
-            {
-                **asdict(item.comparison),
-                "adjusted_p_value": item.adjusted_p_value,
-                "significant": item.significant,
-            }
-            for item in comparisons.comparisons
-        ],
+        "comparisons": comparison_rows,
         "n_comparisons": comparisons.n_comparisons,
         "n_significant": comparisons.n_significant,
     }

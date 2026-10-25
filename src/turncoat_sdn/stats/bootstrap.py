@@ -110,6 +110,62 @@ def bootstrap_ci(
     return ConfidenceInterval(mean, float(low), float(high), n, confidence, resamples)
 
 
+def paired_bootstrap_ci(
+    rows: Sequence[Mapping[str, Any]],
+    strategy_a: str,
+    strategy_b: str,
+    scenario: str,
+    metric: str,
+    *,
+    confidence: float = DEFAULT_CONFIDENCE,
+    resamples: int = DEFAULT_RESAMPLES,
+    seed: int = DEFAULT_SEED,
+) -> ConfidenceInterval:
+    """Bootstrap the mean difference using matched strategy runs.
+
+    Rows are paired by seed. Each bootstrap draw resamples the paired
+    differences, preserving the dependence between strategies.
+    Differences are strategy_a minus strategy_b.
+    """
+    from turncoat_sdn.stats.paired import paired_wilcoxon
+
+    _check(confidence, resamples)
+
+    # Reuse the established validation for labels, seeds, duplicate rows,
+    # matching seed sets, and complete metric pairs.
+    paired_wilcoxon(rows, strategy_a, strategy_b, scenario, metric)
+
+    selected: dict[str, dict[int, Mapping[str, Any]]] = {
+        strategy_a: {},
+        strategy_b: {},
+    }
+    for row in rows:
+        if row.get("scenario") != scenario or row.get("strategy") not in selected:
+            continue
+        selected[row["strategy"]][row["seed"]] = row
+
+    differences: list[float] = []
+    for run_seed in sorted(selected[strategy_a]):
+        value_a = selected[strategy_a][run_seed].get(metric)
+        value_b = selected[strategy_b][run_seed].get(metric)
+        if value_a is None or value_a == "" or value_b is None or value_b == "":
+            continue
+        differences.append(float(value_a) - float(value_b))
+
+    data = np.asarray(differences, dtype=float)
+    mean = math.fsum(differences) / len(differences)
+    if len(differences) == 1 or np.all(data == data[0]):
+        return ConfidenceInterval(mean, mean, mean, len(differences), confidence, resamples)
+
+    rng = np.random.default_rng(seed)
+    means = data[rng.integers(0, len(data), size=(resamples, len(data)))].mean(axis=1)
+    tail = (1.0 - confidence) / 2.0
+    low, high = np.quantile(means, [tail, 1.0 - tail])
+    return ConfidenceInterval(
+        mean, float(low), float(high), len(differences), confidence, resamples
+    )
+
+
 def bootstrap_metrics(
     rows: Iterable[Mapping[str, Any]],
     metrics: Sequence[str],

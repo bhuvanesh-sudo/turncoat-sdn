@@ -78,3 +78,41 @@ def test_mismatched_seeds_are_rejected(rows):
     rows.pop()
     with pytest.raises(ValueError):
         evaluate(rows)
+
+
+def test_comparisons_include_reproducible_paired_bootstrap_intervals(rows):
+    report = evaluate(rows)
+    comparison = report["comparisons"][0]
+
+    assert comparison["paired_ci_confidence"] == 0.95
+    assert comparison["paired_ci_low"] <= comparison["mean_difference"]
+    assert comparison["mean_difference"] <= comparison["paired_ci_high"]
+    assert evaluate(rows)["comparisons"][0] == comparison
+
+
+def test_paired_interval_is_zero_for_identical_strategy_values(rows):
+    for row in rows:
+        if row["strategy"] == "round_robin":
+            row["slo_violation_rate"] = next(
+                other["slo_violation_rate"]
+                for other in rows
+                if other["strategy"] == "random" and other["seed"] == row["seed"]
+            )
+
+    comparison = evaluate(rows)["comparisons"][0]
+    assert comparison["paired_ci_low"] == 0.0
+    assert comparison["paired_ci_high"] == 0.0
+
+
+def test_paired_interval_rejects_invalid_resample_count(rows):
+    from turncoat_sdn.stats.bootstrap import paired_bootstrap_ci
+
+    with pytest.raises(ValueError, match="resamples"):
+        paired_bootstrap_ci(
+            rows,
+            "random",
+            "round_robin",
+            "sybil",
+            "slo_violation_rate",
+            resamples=0,
+        )
