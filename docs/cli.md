@@ -1,6 +1,6 @@
 # Command line
 
-**Owner:** jv · **Written in:** v0.2, extended through v0.4
+**Owner:** jv · **Written in:** v0.2, extended through v1.0
 
 ## What it is
 
@@ -10,6 +10,7 @@ the trust model, the event format and the scorers into one workflow:
 | Command | What it does | Since |
 |---|---|---|
 | `turncoat run` | Simulates one seeded run and records it to `events.jsonl` | v0.2 |
+| `turncoat convert` | Converts a live recording from the final-year controller to the event schema, so it scores like a simulated run | v1.0 |
 | `turncoat validate` | Checks recordings against the event schema | v0.2 |
 | `turncoat score` | Grades a recording: who was caught, how fast, at what cost | v0.2 |
 | `turncoat replicate` | Runs many seeds per strategy and scenario into one results CSV, with a mean and confidence interval on every metric | v0.4 |
@@ -145,6 +146,43 @@ Admission: 53 requests refused, 53 from attackers and 0 from honest devices.
 
 A spoofer is stopped at admission, before routing, so it is never flagged
 for quarantine or cut off: those two counts are about servers.
+
+### `turncoat convert`
+
+```bash
+turncoat convert RECORDING -o PATH [--seed SEED] [--strategy NAME] [--scenario NAME]
+```
+
+Converts a recording the final-year project's controller wrote on a live
+Mininet run (`data/events.jsonl`) to the shared format, then validates the
+result. It adds the header with `backend: live`, counts `ts` from the
+earliest stamp instead of wall-clock time, puts the events in time order and
+drops the dashboard's `seq` counter. Every other field is kept.
+
+| Option | Default | Meaning |
+|---|---|---|
+| `-o PATH` | required | Where to write the converted recording |
+| `--seed SEED` | none | The run's seed, written into the header |
+| `--strategy NAME` | none | The strategy the controller ran, written into the header |
+| `--scenario NAME` | none | The scenario name, written into the header |
+
+The recording does not say how the run was made, so pass those three if you
+know them. `convert` reports what it changed:
+
+```
+Converted data/events.jsonl to live.jsonl
+  18 events; ts now counts from the first stamp, 1761390000.250000 (Unix time)
+  1 event(s) were out of time order and were moved
+  1 blank or malformed line(s) were left out
+  1 NaN or infinite value(s) were written as null
+live.jsonl: valid, schema 1.0, 19 lines
+Next: turncoat score live.jsonl
+```
+
+It refuses a file that already has a header (validate it instead), one with
+no `topology` event, and one with more than one, which is two controller
+starts in one file. The rules are in
+[event-format.md](event-format.md#live-runs).
 
 ### `turncoat validate`
 
@@ -433,6 +471,7 @@ fresh run.
 | `routers.py` | The five strategies as simulator routers, copied line for line from the final-year project's `evaluation/baseline.py` |
 | `run.py` | `record_run`, which joins the router, `SimTrustModel`, the latency tell and an `EventWriter` |
 | `attack_spec.py` | Parses `--attack` and places each attacker beside the scenario's, built by the scenario of the same name |
+| `convert.py` | A front end to `turncoat_sdn.events.convert_live_file`, followed by the validator |
 | `validate.py` | A front end to `turncoat_sdn.events.validate` |
 | `score.py` | Service totals from events, then the NFR, availability and attack scorers |
 | `replicate.py` | `replicate_rows`, which runs and scores the paired grid into results rows, and the interval table |
