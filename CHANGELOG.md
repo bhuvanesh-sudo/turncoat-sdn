@@ -9,12 +9,25 @@ fits (Added, Changed, Fixed, Removed).
 
 ## [Unreleased]
 
-### Changed
-
-- Remove the stale paired-statistics placeholder now that paired tests are implemented.
+## [1.0.0] - 2026-10-25
 
 ### Added
 
+- Optional live backend in `backends/mininet/` (package `turncoat_mininet`):
+  the final-year project's node agent and topology ported onto the core.
+  Each server's agent runs a core `ServerAttack` built as the simulator
+  builds it, so turncoats keep their `start_s` onset live. A live controller
+  routes with the `turncoat run` strategies, updates `SimTrustModel`, detects
+  with the simulator's own detection step and records `events.jsonl` with
+  `EventWriter` (`"backend": "live"`), so `turncoat validate` and `score` read
+  live runs unchanged. `python -m turncoat_mininet.run` runs on Mininet, or on
+  loopback with no Mininet or root. The topology is seeded, uses standalone
+  Open vSwitch switches with no OpenFlow controller, and checks reachability
+  with a linear ping sample. Every process starts against one shared `t0`,
+  and a run whose agents or clients are not ready by then stops instead of
+  recording skewed onsets (`--warmup`). Tests run without Mininet; one `live`
+  test needs the testbed. The Mininet section of `INSTALL.md` and
+  `backends/mininet/README.md`.
 - Live recording check: a loopback live run passes `turncoat validate` and
   `turncoat score` unchanged and records every field a simulated run does
   (`backends/mininet/tests/test_live_recording.py`), and `turncoat convert`
@@ -22,6 +35,38 @@ fits (Added, Changed, Fixed, Removed).
   controller's live recordings to schema 1.0; the live-runs section of
   `docs/event-format.md`, "Your own system" in `docs/extending.md`, and
   `docs/cli.md`.
+- Custom attack example, `examples/custom_attack.py`: the *slowpoke*, a
+  server that serves every task four times slower but never lies, written,
+  placed, recorded, scored and tested over paired seeds in 48 lines of code.
+  It raises SLO violations under every strategy (Wilcoxon p = 0.002 over 10
+  seeds) and is never quarantined. A test runs it as a script in CI and holds
+  it under 50 lines; `docs/extending.md` with its custom-attack section (ash).
+- Cross-scenario robustness rankings in `turncoat_sdn.stats.robustness`:
+  `rank_strategies(rows, metric=...)` averages each strategy over its seeds
+  in every scenario of a results file, ranks the strategies within each
+  scenario in the metric's own direction (ties share the average rank), and
+  ranks them overall by their mean rank.
+- `CITATION.cff` (Citation File Format 1.2.0), so GitHub shows "Cite this
+  repository" and the release can be archived with a DOI; the README's new
+  "Cite it" section.
+
+### Changed
+
+- The simulator's per-poll detection (latency tell, timeout-rate tell,
+  anomaly smoothing, exclusion test) moved out of the event loop into
+  `turncoat_sdn.sim.detect` as `detect_anomalies` and `is_excluded`, so the
+  live backend runs the same code. No number changes; the golden files pass.
+- `pytest` from the repository root also collects `backends/mininet/tests`.
+- Remove the stale paired-statistics placeholder now that paired tests are implemented.
+- Version 1.0.0, development status Beta. The README is the release
+  version: status, install, quick start, the attack catalogue, the optional
+  live testbed, extending the benchmark, the documentation index and how to
+  cite it; every command in it was rerun from a fresh clone.
+
+## [0.4.0] - 2026-10-25
+
+### Added
+
 - Replicate results file in `turncoat_sdn.stats.replicates`: one CSV row per
   run with strategy, scenario, seed and every metric, simulator and detection
   columns alike (results format 1.0, `RESULTS_FIELDS`), with a typed reader;
@@ -51,35 +96,6 @@ fits (Added, Changed, Fixed, Removed).
   "Compare strategies" section shows a real `compare` table and the figure,
   drawn from the 30-seed results in `docs/results.md`, into `docs/figures/`;
   tests, and the plot section of `docs/cli.md` (arj).
-- Optional live backend in `backends/mininet/` (package `turncoat_mininet`):
-  the final-year project's node agent and topology ported onto the core.
-  Each server's agent runs a core `ServerAttack` built as the simulator
-  builds it, so turncoats keep their `start_s` onset live. A live controller
-  routes with the `turncoat run` strategies, updates `SimTrustModel`, detects
-  with the simulator's own detection step and records `events.jsonl` with
-  `EventWriter` (`"backend": "live"`), so `turncoat validate` and `score` read
-  live runs unchanged. `python -m turncoat_mininet.run` runs on Mininet, or on
-  loopback with no Mininet or root. The topology is seeded, uses standalone
-  Open vSwitch switches with no OpenFlow controller, and checks reachability
-  with a linear ping sample. Every process starts against one shared `t0`,
-  and a run whose agents or clients are not ready by then stops instead of
-  recording skewed onsets (`--warmup`). Tests run without Mininet; one `live`
-  test needs the testbed. The Mininet section of `INSTALL.md` and
-  `backends/mininet/README.md`.
-- Custom attack example, `examples/custom_attack.py`: the *slowpoke*, a
-  server that serves every task four times slower but never lies, written,
-  placed, recorded, scored and tested over paired seeds in 48 lines of code.
-  It raises SLO violations under every strategy (Wilcoxon p = 0.002 over 10
-  seeds) and is never quarantined. A test runs it as a script in CI and holds
-  it under 50 lines; `docs/extending.md` with its custom-attack section (ash).
-
-### Changed
-
-- The simulator's per-poll detection (latency tell, timeout-rate tell,
-  anomaly smoothing, exclusion test) moved out of the event loop into
-  `turncoat_sdn.sim.detect` as `detect_anomalies` and `is_excluded`, so the
-  live backend runs the same code. No number changes; the golden files pass.
-- `pytest` from the repository root also collects `backends/mininet/tests`.
 
 ### Fixed
 
@@ -199,7 +215,9 @@ fits (Added, Changed, Fixed, Removed).
   `NoTrustStrategy` and `ZeroTrustSDNStrategy`), with server validation,
   trust-threshold filtering, automated tests and `docs/strategies.md` (arv).
 
-[Unreleased]: https://github.com/bhuvanesh-sudo/turncoat-sdn/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/bhuvanesh-sudo/turncoat-sdn/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/bhuvanesh-sudo/turncoat-sdn/compare/v0.4.0...v1.0.0
+[0.4.0]: https://github.com/bhuvanesh-sudo/turncoat-sdn/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/bhuvanesh-sudo/turncoat-sdn/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/bhuvanesh-sudo/turncoat-sdn/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/bhuvanesh-sudo/turncoat-sdn/releases/tag/v0.1.0
