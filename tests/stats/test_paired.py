@@ -102,3 +102,58 @@ class TestHolmAdjust:
 
     def test_single_p_value_is_unchanged(self):
         assert holm_adjust([0.03]) == pytest.approx([0.03])
+
+
+class TestPairedWilcoxonEdgeCases:
+    @pytest.mark.parametrize(
+        ("strategy_a", "strategy_b", "scenario", "metric"),
+        [
+            ("", "b", "both", "metric"),
+            ("a", " ", "both", "metric"),
+            ("a", "b", "", "metric"),
+            ("a", "b", "both", " "),
+        ],
+    )
+    def test_empty_labels_are_rejected(self, strategy_a, strategy_b, scenario, metric):
+        with pytest.raises(ValueError, match="non-empty"):
+            paired_wilcoxon([], strategy_a, strategy_b, scenario, metric)
+
+    @pytest.mark.parametrize("alternative", ["invalid", "", None])
+    def test_unsupported_alternative_is_rejected(self, alternative):
+        with pytest.raises(ValueError, match="alternative"):
+            paired_wilcoxon(
+                [],
+                "a",
+                "b",
+                "both",
+                "metric",
+                alternative=alternative,
+            )
+
+    @pytest.mark.parametrize("seed", [True, 1.5, "1", None])
+    def test_invalid_seed_types_are_rejected(self, seed):
+        rows = make_rows([1], [2])
+        rows[0]["seed"] = seed
+        with pytest.raises(TypeError, match="seed"):
+            paired_wilcoxon(rows, "a", "b", "both", "slo_violation_rate")
+
+    def test_missing_required_row_key_is_rejected(self):
+        with pytest.raises(ValueError, match="required keys"):
+            paired_wilcoxon(
+                [{"strategy": "a", "scenario": "both"}],
+                "a",
+                "b",
+                "both",
+                "metric",
+            )
+
+
+class TestHolmAdjustEdgeCases:
+    def test_tied_p_values_are_adjusted_consistently(self):
+        assert holm_adjust([0.01, 0.01, 0.5]) == pytest.approx([0.03, 0.03, 0.5])
+
+    def test_boundary_p_values_are_supported(self):
+        assert holm_adjust([0.0, 1.0]) == pytest.approx([0.0, 1.0])
+
+    def test_all_equal_p_values_receive_holm_adjustment(self):
+        assert holm_adjust([0.2, 0.2, 0.2]) == pytest.approx([0.6, 0.6, 0.6])

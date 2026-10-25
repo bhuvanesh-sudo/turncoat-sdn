@@ -98,3 +98,19 @@ def test_writer_returns_number_of_exported_comparisons(tmp_path):
     )
 
     assert write_comparison_report(report, tmp_path / "all.csv") == 3
+
+
+def test_empty_report_writes_header_and_returns_zero(tmp_path):
+    from turncoat_sdn.stats.compare import ComparisonReport
+
+    output = tmp_path / "empty.csv"
+    count = write_comparison_report(
+        ComparisonReport(comparisons=(), alpha=0.05),
+        output,
+    )
+
+    assert count == 0
+    with output.open(newline="", encoding="utf-8") as stream:
+        reader = csv.reader(stream)
+        assert next(reader) == list(COMPARISON_FIELDS)
+        assert list(reader) == []

@@ -153,3 +153,49 @@ def test_comparison_order_is_deterministic(rows):
         ("sybil", "mean_latency_ms", "random", "zero_trust"),
         ("sybil", "mean_latency_ms", "round_robin", "zero_trust"),
     ]
+
+
+class TestCompareStrategiesEdgeCases:
+    def test_string_instead_of_strategy_sequence_is_rejected(self, rows):
+        with pytest.raises(TypeError, match="sequence of strings"):
+            compare_strategies(
+                rows,
+                strategies="random",
+                scenarios=["sybil"],
+                metrics=["slo_violation_rate"],
+            )
+
+    def test_non_string_selection_is_rejected(self, rows):
+        with pytest.raises(ValueError, match="non-empty strings"):
+            compare_strategies(
+                rows,
+                strategies=["random", 42],
+                scenarios=["sybil"],
+                metrics=["slo_violation_rate"],
+            )
+
+    def test_boolean_alpha_is_rejected(self, rows):
+        with pytest.raises(TypeError, match="alpha"):
+            compare_strategies(
+                rows,
+                strategies=["random", "zero_trust"],
+                scenarios=["sybil"],
+                metrics=["slo_violation_rate"],
+                alpha=True,
+            )
+
+    def test_missing_required_row_key_is_rejected(self):
+        malformed = {"strategy": "random", "scenario": "sybil"}
+        valid = {
+            "strategy": "zero_trust",
+            "scenario": "sybil",
+            "seed": 1,
+            "slo_violation_rate": 0.1,
+        }
+        with pytest.raises(ValueError, match="required keys"):
+            compare_strategies(
+                [malformed, valid],
+                strategies=["random", "zero_trust"],
+                scenarios=["sybil"],
+                metrics=["slo_violation_rate"],
+            )
