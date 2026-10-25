@@ -59,6 +59,9 @@ __all__ = [
     "AdjustedComparison",
     "ComparisonReport",
     "compare_strategies",
+    "COMPARISON_FIELDS",
+    "comparison_rows",
+    "write_comparison_report",
 ]
 
 from turncoat_sdn.stats.compare import (
@@ -70,4 +73,9 @@ from turncoat_sdn.stats.paired import (
     PairedComparison,
     holm_adjust,
     paired_wilcoxon,
+)
+from turncoat_sdn.stats.report import (
+    COMPARISON_FIELDS,
+    comparison_rows,
+    write_comparison_report,
 )

@@ -84,7 +84,7 @@ It uses the existing SciPy dependency. It does not execute simulations, change s
 - Very small samples can provide limited statistical power.
 - Mean and median differences describe the observed effect but are not confidence intervals.
 - The reported p-value is unadjusted until it is passed through `holm_adjust` with the other tests in the same correction family.
-- The module does not currently generate a complete strategy-comparison report or provide the `turncoat compare` CLI command.
+- CSV comparison reports are supported through `write_comparison_report`; the `turncoat compare` CLI command remains future work.
 
 **## Multi-strategy comparison reports**
 
@@ -130,3 +130,53 @@ uncomputable comparisons raise an error rather than being silently omitted.
 The report does not automatically decide which comparisons belong in a
 scientifically justified family; that choice must match the analysis plan.
 The `turncoat compare` CLI command remains separate follow-up work.
+
+**## CSV Comparison Report Export**
+
+**Owner:** arv · **Written in:** v0.4
+
+**## What it is**
+
+The comparison report exporter writes a `ComparisonReport` to a separate CSV file. It preserves raw and Holm-adjusted p-values, significance decisions, sample counts, and measured differences.
+
+**## Why it exists**
+
+A stable CSV makes statistical results easier to inspect in spreadsheets, compare across experiments, and include in project documentation without manually copying results.
+
+**## How to use it**
+
+```python
+from turncoat_sdn.stats import (
+    compare_strategies,
+    read_results,
+    write_comparison_report,
+)
+
+rows = read_results("results.csv")
+report = compare_strategies(
+    rows,
+    strategies=["random", "zero_trust"],
+    scenarios=["sybil"],
+    metrics=["slo_violation_rate"],
+)
+
+count = write_comparison_report(report, "reports/comparison.csv")
+print(f"Exported {count} comparisons")
+```
+
+**## How it works inside**
+
+`comparison_rows(report)` converts the report to ordered dictionaries. `COMPARISON_FIELDS` defines the stable column order. `write_comparison_report(report, path)` creates parent directories, writes a UTF-8 CSV with a header, and returns the number of comparison rows written.
+
+The columns include strategy names, scenario, metric, complete and missing pair counts, test statistic, raw and adjusted p-values, mean and median differences, alternative hypothesis, alpha, and significance.
+
+**## Integration status**
+
+Implemented in `src/turncoat_sdn/stats/report.py`, tested in `tests/stats/test_report.py`, and exposed through `turncoat_sdn.stats`. It does not run simulations or alter statistical results.
+
+**## Known limits**
+
+- The exporter writes the results already present in the report; it does not independently validate the experimental design.
+- Holm correction is applied by `compare_strategies(...)` before export.
+- Writing to an existing destination replaces that file.
+- The `turncoat compare` CLI command remains separate follow-up work.
