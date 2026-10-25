@@ -9,6 +9,10 @@ fits (Added, Changed, Fixed, Removed).
 
 ## [Unreleased]
 
+### Changed
+
+- Remove the stale paired-statistics placeholder now that paired tests are implemented.
+
 ### Added
 
 - Live recording check: a loopback live run passes `turncoat validate` and
