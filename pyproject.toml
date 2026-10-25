@@ -79,7 +79,7 @@ include = [
 
 [tool.pytest.ini_options]
 minversion = "8.0"
-testpaths = ["tests"]
+testpaths = ["tests", "backends/mininet/tests"]
 addopts = "-ra --strict-markers --strict-config --import-mode=importlib"
 markers = [
   "slow: long-running test (many seeds or long simulated time)",
