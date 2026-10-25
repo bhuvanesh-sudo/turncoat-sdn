@@ -157,8 +157,66 @@ scenario that `turncoat run --scenario`, `turncoat replicate` and
 
 ## Your own system
 
-*To be written by arv and arj in v1.0: scoring a recording from an outside
-system, and the live recording check.*
+A system is plugged in through its recording. Whatever writes
+`events.jsonl` in the shared format is graded like the simulator, with the
+same two commands:
+
+```bash
+turncoat validate my_run.jsonl
+turncoat score my_run.jsonl
+```
+
+### A live testbed run
+
+The live backend in `backends/mininet/` already records in the shared
+format, with `backend: live` in the header (see its README for running it):
+
+```bash
+python -m turncoat_mininet.run --network loopback --scenario both -o live.jsonl
+turncoat score live.jsonl
+```
+
+```
+live.jsonl  (live backend, strategy zt_sdn, scenario both, seed 1)
+...
+Attackers
+  srv3     blackhole  named correctly as blackhole
+           detected 3.2 s after onset
+           flagged for quarantine 3.2 s after onset; no traffic after that
+  srv4     sybil      named correctly as sybil
+           detected 3.2 s after onset
+           flagged for quarantine 3.2 s after onset; no traffic after that
+```
+
+The numbers vary from run to run, because a live run has real timing, but
+the commands, the fields and the scorers are the simulator's. The IoT
+clients write no file of their own: each sends its outcome to the
+controller, which records it as a `report`. So one run has one recording.
+
+`backends/mininet/tests/test_live_recording.py` holds this to account on
+every change: it records a loopback run, runs `turncoat validate` and
+`turncoat score` on it, and checks that its events carry every field a
+simulated run's do.
+
+### A recording from the final-year controller
+
+The final-year project's controller wrote `data/events.jsonl` on every live
+run, but in an older shape: no header, wall-clock `ts`, lines slightly out of
+order, and a `seq` counter. Convert it first:
+
+```bash
+turncoat convert data/events.jsonl -o fyp_live.jsonl --strategy zt_sdn
+turncoat score fyp_live.jsonl
+```
+
+`convert` reports every change it makes, validates the result, and refuses a
+file it cannot convert safely. The rules are in
+[event-format.md](event-format.md#live-runs).
+
+### A recording from an outside system
+
+*To be written by arv in v1.0, with an `examples/` script that scores a
+recording from an outside system.*
 
 ## Known limits
 
@@ -170,3 +228,9 @@ system, and the live recording check.*
   the example does.
 - The classifier only names the attack families it knows. A new family is
   scored as missed until the classifier learns a rule for it.
+- A live run is scored on the same metrics as a simulated one, but its
+  numbers are not paired with a simulated seed: real timing differs between
+  runs, so compare live runs with live runs.
+- A converted final-year recording keeps that controller's onsets as
+  configured, which can make detection latency read a few seconds long (see
+  [event-format.md](event-format.md#known-limits)).
