@@ -11,6 +11,13 @@ fits (Added, Changed, Fixed, Removed).
 
 ### Added
 
+- Live recording check: a loopback live run passes `turncoat validate` and
+  `turncoat score` unchanged and records every field a simulated run does
+  (`backends/mininet/tests/test_live_recording.py`), and `turncoat convert`
+  (`turncoat_sdn.events.convert_live_file`) converts the final-year
+  controller's live recordings to schema 1.0; the live-runs section of
+  `docs/event-format.md`, "Your own system" in `docs/extending.md`, and
+  `docs/cli.md`.
 - Replicate results file in `turncoat_sdn.stats.replicates`: one CSV row per
   run with strategy, scenario, seed and every metric, simulator and detection
   columns alike (results format 1.0, `RESULTS_FIELDS`), with a typed reader;
