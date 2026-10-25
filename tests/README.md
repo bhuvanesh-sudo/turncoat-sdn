@@ -35,6 +35,7 @@ sudo is needed. Tests that need the live backend must be marked
 | `stats/test_descriptive.py` | Descriptive statistics over repeated runs: mean, sample standard deviation, minimum, maximum and count. |
 | `stats/test_bootstrap.py` | Percentile-bootstrap intervals: the method against a direct numpy computation, seeding, paired resampling across groups, blanks, one run and agreeing runs, bad input, the opt-in interval on `summarize_metrics`, and 95% coverage on skewed data. |
 | `stats/test_replicates.py` | **The results file**: its columns start with the simulator's row, the detection columns, blanks for what a run cannot measure, and a writer and reader that round-trip with types. |
+| `cli/test_compare.py` | `turncoat compare`: the CSV report and its errors, the comparison family equals `compare_strategies` when everything is measured and drops only cells no seed can measure, one Holm family across scenarios, the table's means, intervals and p-values come from `turncoat_sdn.stats`, **Better** follows each metric's direction, and a full default comparison no longer fails on `clean`. |
 | `cli/test_replicate.py` | `turncoat replicate`: one row per paired run equal to `run` then `score`, every metric printed with an interval, the summary CSV, the same file for the same arguments, `--onset`, usage errors, and that the strategy benchmark runs every scenario. |
 | `events/test_event_list.py` | `EventList`: a recording kept in memory equals the file read back. |
 

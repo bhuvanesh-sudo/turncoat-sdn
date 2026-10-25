@@ -25,6 +25,12 @@ fits (Added, Changed, Fixed, Removed).
   `summarize_metrics(..., confidence=0.95)` adds them to descriptive
   summaries; `docs/statistics.md` (confidence intervals) and
   `docs/results.md`, a full 30-seed comparison.
+- `turncoat compare` prints the comparison table: one block per scenario and
+  strategy pair, and for every metric both means, the mean paired difference
+  with a paired bootstrap interval, the Wilcoxon p-value, the Holm-adjusted
+  p-value and the better strategy, with `--confidence` and `--resamples` for
+  the intervals. Strategies and scenarios default to those in the results
+  file. Tests, and the compare section of `docs/cli.md` (ash).
 
 
 ### Fixed
@@ -32,6 +38,10 @@ fits (Added, Changed, Fixed, Removed).
 - The strategy benchmark runner's default scenarios were a fixed list of the
   four v0.2 scenarios, missing `grayhole`, `onoff` and `spoof`; it now uses
   `turncoat_sdn.sim.SCENARIOS`.
+- `turncoat compare results.csv` stopped with "no complete pairs" whenever a
+  scenario could not measure a metric, such as time to isolate in `clean`, so
+  the default command failed on any full results file. Such cells now leave
+  the Holm family and are listed under the table (ash).
 
 ## [0.3.0] - 2026-10-25
 
