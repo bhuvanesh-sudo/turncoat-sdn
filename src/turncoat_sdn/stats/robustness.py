@@ -36,8 +36,10 @@ def rank_strategies(
     if not rows:
         raise ValueError("rows must not be empty")
 
-    requested = list(scenarios) if scenarios is not None else sorted(
-        {str(row.get("scenario", "")) for row in rows}
+    requested = (
+        list(scenarios)
+        if scenarios is not None
+        else sorted({str(row.get("scenario", "")) for row in rows})
     )
     if not requested or any(not isinstance(s, str) or not s.strip() for s in requested):
         raise ValueError("scenarios must contain non-empty names")
@@ -61,11 +63,7 @@ def rank_strategies(
         value = row.get(metric)
         if value is None or value == "":
             continue
-        if (
-            isinstance(value, bool)
-            or not isinstance(value, Real)
-            or not isfinite(value)
-        ):
+        if isinstance(value, bool) or not isinstance(value, Real) or not isfinite(value):
             raise ValueError(f"metric {metric!r} must contain finite numbers or None")
         grouped[(strategy, scenario)].append(float(value))
 
@@ -82,16 +80,13 @@ def rank_strategies(
         if set(present) != strategies:
             missing = sorted(strategies - set(present))
             raise ValueError(
-                f"scenario {scenario!r} has no valid {metric!r} values for: "
-                + ", ".join(missing)
+                f"scenario {scenario!r} has no valid {metric!r} values for: " + ", ".join(missing)
             )
         means[scenario] = present
 
     higher_is_better = not RESULT_METRICS[metric]
     scenario_rankings: list[dict[str, Any]] = []
-    ranks_by_strategy: dict[str, list[float]] = {
-        strategy: [] for strategy in strategies
-    }
+    ranks_by_strategy: dict[str, list[float]] = {strategy: [] for strategy in strategies}
 
     for scenario in requested:
         ordered = sorted(
@@ -103,10 +98,7 @@ def rank_strategies(
         i = 0
         while i < len(ordered):
             j = i + 1
-            while (
-                j < len(ordered)
-                and means[scenario][ordered[j]] == means[scenario][ordered[i]]
-            ):
+            while j < len(ordered) and means[scenario][ordered[j]] == means[scenario][ordered[i]]:
                 j += 1
             rank = ((i + 1) + j) / 2
             for strategy in ordered[i:j]:

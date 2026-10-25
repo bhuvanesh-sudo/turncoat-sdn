@@ -79,6 +79,7 @@ def test_rank_strategies_rejects_scenario_missing_a_strategy_metric():
     with pytest.raises(ValueError, match="scenario 'two'"):
         rank_strategies(rows, metric="failure_rate")
 
+
 def test_rank_strategies_ignores_strategies_outside_requested_scenarios():
     rows = [
         {"strategy": "A", "scenario": "chosen", "failure_rate": 0.1},
