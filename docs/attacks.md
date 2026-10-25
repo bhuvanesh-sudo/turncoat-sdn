@@ -147,6 +147,10 @@ and the trust score floors well above 0.3 (see
 [The trust model](trust-model.md)). It does little damage only because it
 serves honestly. That is the kind of result an attack exists to surface.
 
+For a complete, runnable attack that is scored and tested over paired seeds,
+see [`examples/custom_attack.py`](../examples/custom_attack.py) and its
+walk-through in [extending.md](extending.md#your-own-attack).
+
 ### A client attack
 
 An attack by an IoT device subclasses `ClientAttack`. The device's ordinary

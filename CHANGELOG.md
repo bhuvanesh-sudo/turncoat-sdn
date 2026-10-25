@@ -55,6 +55,12 @@ fits (Added, Changed, Fixed, Removed).
   recording skewed onsets (`--warmup`). Tests run without Mininet; one `live`
   test needs the testbed. The Mininet section of `INSTALL.md` and
   `backends/mininet/README.md`.
+- Custom attack example, `examples/custom_attack.py`: the *slowpoke*, a
+  server that serves every task four times slower but never lies, written,
+  placed, recorded, scored and tested over paired seeds in 48 lines of code.
+  It raises SLO violations under every strategy (Wilcoxon p = 0.002 over 10
+  seeds) and is never quarantined. A test runs it as a script in CI and holds
+  it under 50 lines; `docs/extending.md` with its custom-attack section (ash).
 
 ### Changed
 
