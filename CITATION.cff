@@ -1,0 +1,34 @@
+cff-version: 1.2.0
+message: "If you use turncoat-sdn in your research, please cite it as below."
+title: "turncoat-sdn: a reproducible benchmark for trust-aware SDN load balancers under delayed-onset attacks"
+abstract: >-
+  turncoat-sdn is a benchmark for trust-aware load balancers in
+  software-defined edge networks under delayed-onset ("turncoat") attacks:
+  servers and IoT devices that behave honestly until an onset, then lie about
+  their load, drop tasks, alternate between honest and hostile phases, or
+  spoof another device's identity. It provides a seeded discrete-event
+  simulator, five load-balancing strategies including a zero-trust EdgeScore
+  selector, an attack library with configurable onsets, a versioned event
+  recording format with a validator, ground-truth scorers, paired statistics
+  with bootstrap confidence intervals and Holm-corrected Wilcoxon tests, and
+  an optional live testbed on Mininet that records the same format.
+type: software
+authors:
+  - given-names: "K R Jeevan Raj"
+  - given-names: "Aravind Kumar M"
+  - given-names: "Arjun Krishnakumar"
+  - given-names: "Ashwin Kumar RM"
+  - given-names: "Bhuvanesh S"
+repository-code: "https://github.com/bhuvanesh-sudo/turncoat-sdn"
+url: "https://github.com/bhuvanesh-sudo/turncoat-sdn"
+license: MIT
+version: 1.0.0
+date-released: "2026-10-25"
+keywords:
+  - software-defined networking
+  - zero trust
+  - load balancing
+  - edge computing
+  - IoT security
+  - trust model
+  - benchmark
