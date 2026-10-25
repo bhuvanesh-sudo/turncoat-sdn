@@ -77,12 +77,12 @@ python -c "import turncoat_sdn"
 | `trust/` | Latency tell | arj | v0.1 | `controller/flow_monitor.py` (two functions only) |
 | `trust/` | Trust calculator, edge selector, thresholds, anomaly gate | ash | v0.1 | `trust_engine/trust_calculator.py`, `contracts/trust_update.py`, `controller/edge_selector.py`, `contracts/thresholds.py` |
 | `strategies/` | `random`, `round_robin`, `least_conn`, `no_trust`, `zt_sdn` behind one interface | arv | planned, v0.1 | `evaluation/baseline.py` |
-| `events/` | Event schema 1.0, JSONL writer and reader, validator (see `event-format.md`) | arj | v0.2 | `controller/event_bus.py` (JSONL part), `evaluation/nfr_report.load_events` |
+| `events/` | Event schema 1.0, JSONL writer and reader, validator (see `event-format.md`); from v1.0 the converter for the final-year controller's live recordings (`live.py`) | arj | v0.2 | `controller/event_bus.py` (JSONL part), `evaluation/nfr_report.load_events` |
 | `scoring/` | Attack classifier and attack scorer | ash | v0.2 | `controller/attack_classifier.py`, `evaluation/attack_report.py` |
 | `scoring/` | NFR, interval and availability scorers | arv | planned, v0.2 | `evaluation/nfr_report.py`, `interval_report.py`, `availability_report.py` |
 | `attacks/` | The `ServerAttack` and `ClientAttack` interfaces with a `start_s` onset, and one profile per attack | ash and everyone | v0.3 | The attacker branches of `evaluation/baseline.py`, onset logic from `simulation/node_agent.py`, the spoofer from `simulation/iot_client.py` |
 | `stats/` | Paired Wilcoxon with Holm, bootstrap CIs, replicate aggregator | arv, bv, arj | planned, v0.4 | `evaluation/stats.py` |
-| `cli/` | The `turncoat` command (`run`, `validate`, `score`; from v0.4 `replicate`, `compare` and `plot`) and the five strategies as simulator routers | jv | v0.2 | `evaluation/baseline.py` (routers) |
+| `cli/` | The `turncoat` command (`run`, `validate`, `score`; from v0.4 `replicate`, `compare` and `plot`; from v1.0 `convert`) and the five strategies as simulator routers | jv | v0.2 | `evaluation/baseline.py` (routers) |
 | `backends/mininet/` | Optional live testbed (outside the core package): `turncoat_mininet` node agent, IoT client, live controller, topology and runner | bv | v1.0 | `simulation/node_agent.py`, `topology.py`, `addressing.py`, the client half of `iot_client.py` |
 
 ### Dependency rules
