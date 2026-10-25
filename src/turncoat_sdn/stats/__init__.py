@@ -1,6 +1,6 @@
 """Statistics over many runs: descriptive summaries, bootstrap confidence
-intervals, the replicate results file, and (planned) paired Wilcoxon
-signed-rank with Holm correction.
+intervals, the replicate results file, paired Wilcoxon signed-rank tests,
+and Holm correction for multiple comparisons.
 
 Owner: arv.
 Lands in: v0.3 (descriptive summaries), v0.4.
@@ -53,4 +53,13 @@ __all__ = [
     "read_results",
     "results_row",
     "write_results",
+    "PairedComparison",
+    "holm_adjust",
+    "paired_wilcoxon",
 ]
+
+from turncoat_sdn.stats.paired import (
+    PairedComparison,
+    holm_adjust,
+    paired_wilcoxon,
+)

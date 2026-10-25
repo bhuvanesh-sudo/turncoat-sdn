@@ -11,7 +11,7 @@ parts:
 |---|---|---|---|
 | Descriptive summaries | What were the mean, spread and range over the runs? | `stats/descriptive.py` | v0.3, see [benchmark-statistics.md](benchmark-statistics.md) |
 | [Confidence intervals](#confidence-intervals) | How far could each mean move on other seeds? | `stats/bootstrap.py` | v0.4 |
-| [Paired tests](#paired-tests) | Is strategy A really better than B on this metric? | planned | v0.4 |
+| [Paired tests](paired-statistics.md) | How do two strategies compare on matched seeds? | `stats/paired.py` | v0.4 implemented |
 
 They all read the same input, the results file `turncoat replicate` writes:
 one row per run, every metric a column (see
@@ -127,3 +127,11 @@ correction in v0.4.* `turncoat compare` reads the results file and runs it.
   40%. The Holm correction is for the tests, not the intervals.
 
 See also: [Paired Benchmark Statistics](paired-statistics.md).
+
+
+## Paired tests
+
+Paired Wilcoxon signed-rank testing and Holm-Bonferroni p-value correction
+are implemented in `stats/paired.py` and exported from `turncoat_sdn.stats`.
+See [Paired Benchmark Statistics](paired-statistics.md) for the API, examples,
+validation rules, test commands, integration status, and known limitations.
