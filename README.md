@@ -13,7 +13,10 @@
 > grade it, and the attack catalogue gives every attack its own onset
 > `start_s`. v0.4 adds statistics: `turncoat replicate` runs many paired seeds
 > into one results CSV and prints every metric with a 95% bootstrap confidence
-> interval. See the [release plan](#release-plan).
+> interval, `turncoat compare` tests every gap between strategies with paired
+> Wilcoxon tests and Holm correction, and `turncoat plot` draws the figure.
+> See [Compare strategies](#compare-strategies) and the
+> [release plan](#release-plan).
 
 ---
 
@@ -65,7 +68,7 @@ scorers --> statistics --> report
 | **Event format** | One JSON object per line, covering every routing decision, outcome, classification and quarantine, plus the ground truth. Versioned, with a validator. | v0.2 |
 | **Scorers** | Detection accuracy and latency with a confusion matrix, availability, NFR and interval metrics. | v0.2 |
 | **Attack library** | Six hostile behaviours: sybil, blackhole, grayhole, on-off, flood and identity spoof. Each has a configurable onset `start_s`. | v0.3; sybil, blackhole, grayhole, on-off and identity spoof are in |
-| **Statistics** | A results CSV over many paired seeds, bootstrap CIs on every metric, paired Wilcoxon tests with Holm correction. | v0.4; results file and bootstrap CIs are in; descriptive summaries and a strategy benchmark runner from v0.3 |
+| **Statistics** | A results CSV over many paired seeds, bootstrap CIs on every metric, paired Wilcoxon tests with Holm correction, a comparison table and figure. | v0.4; descriptive summaries and a strategy benchmark runner from v0.3 |
 
 ## The attack catalogue
 
@@ -176,13 +179,72 @@ both  (30 seeds per strategy)
 a spreadsheet or for `turncoat compare`. The full seven-scenario comparison,
 and how to read it, is in [docs/results.md](docs/results.md).
 
-### Where this is going
+## Compare strategies
 
-Paired tests arrive later in v0.4:
+Side-by-side intervals show where each strategy lands. Whether the gap
+between two of them is real is a paired question, because every strategy ran
+on the same 30 seeds with the same workload and the same attackers.
+`turncoat compare` answers it. For each metric it gives the mean paired
+difference with a bootstrap interval, a Wilcoxon signed-rank p-value, and
+that p-value after Holm correction across every test in the table:
 
 ```bash
-turncoat compare --strategies zt_sdn,least_conn --seeds 30
+turncoat replicate -o results.csv
+turncoat compare results.csv --strategies zt_sdn,round_robin --scenarios both
 ```
+
+```
+both: zt_sdn vs round_robin  (30 paired seeds)
+                            zt_sdn   round_robin       Difference [95% CI]         p    Holm p   Better
+  SLO violations (%)         12.09         23.36   -11.27 [-11.52, -11.01]   <0.0001   <0.0001   zt_sdn
+  Failed (%)                  0.10         12.09   -11.99 [-12.01, -11.97]   <0.0001   <0.0001   zt_sdn
+  Routed to attackers (%)     0.36         24.99   -24.63 [-24.66, -24.60]   <0.0001   <0.0001   zt_sdn
+  Mean latency (ms)          243.6         247.1         -3.5 [-6.6, -0.5]    0.0449    0.1347   -
+  p95 latency (ms)           684.0         785.4    -101.4 [-118.2, -86.0]   <0.0001   <0.0001   zt_sdn
+  Load Gini                  0.257         0.000   +0.257 [+0.255, +0.258]   <0.0001   <0.0001   round_robin
+  Time to isolate (s)          3.4           3.0         +0.4 [+0.3, +0.6]    0.0003    0.0012   round_robin
+  Attackers named (%)       100.00        100.00      +0.00 [+0.00, +0.00]    1.0000    1.0000   -
+  Detection latency (s)        3.2           3.0         +0.2 [+0.2, +0.3]    0.0001    0.0005   round_robin
+  Honest mislabelled (%)      0.00          0.00      +0.00 [+0.00, +0.00]    1.0000    1.0000   -
+
+Difference: first strategy minus second on each seed, averaged, with a paired
+  percentile bootstrap interval (10,000 resamples, seed 0).
+p: two-sided Wilcoxon signed-rank test. Holm p: adjusted across all 10 tests above.
+Better: the better strategy when Holm p <= 0.05; lower is better except for attackers named.
+
+Wrote comparisons.csv (10 comparisons, 7 significant at alpha=0.05)
+```
+
+Against a Sybil and a blackhole together, `zt_sdn` halves SLO violations
+(11.27 points fewer), fails almost no tasks against `round_robin`'s 12%, and
+sends the attackers 0.36% of all traffic instead of a quarter. Every one of those
+intervals sits far from zero. It pays in load balance, because the work
+it keeps off the attackers piles onto the honest servers, and it isolates
+0.4 s later. Mean latency shows why Holm matters: a raw p of 0.045 would pass
+on its own, but corrected across the ten tests it is 0.13, so there is no
+winner.
+
+`turncoat plot` draws the same results file as a figure, one panel per
+scenario:
+
+```bash
+turncoat plot results.csv -o docs/figures/slo-violations.svg
+```
+
+![SLO violations per strategy and scenario, mean over 30 seeds with 95% confidence intervals](docs/figures/slo-violations.svg)
+
+`zt_sdn` (blue) has the fewest SLO violations under every server attack. It
+pays about one point against `round_robin` when no server attacks: in
+`clean`, and in `spoof`, where the spoofer is refused at admission and the
+run is otherwise the same as `clean`. `least_conn` is
+the worst strategy under attack, because a dropper and a Sybil both look
+idle to it. At 30 seeds almost every interval is narrower than its dot. The
+same figure for traffic routed to attackers is in
+[docs/cli.md](docs/cli.md#turncoat-plot). The full seven-scenario table,
+including where `zt_sdn` falls short (it contains the on-off attacker least,
+and names the grayhole on only 70% of seeds), is in
+[docs/results.md](docs/results.md). Why the tests are paired, and why Holm,
+is in [docs/statistics.md](docs/statistics.md).
 
 ## Release plan
 
@@ -205,11 +267,11 @@ turncoat-sdn/
 |   |-- trust/        # trust calculator, edge selector, thresholds
 |   |-- events/       # schema, JSONL writer and reader, validator
 |   |-- scoring/      # attack, nfr, interval, availability, benchmark
-|   |-- stats/        # descriptive, bootstrap CIs, results file (Wilcoxon + Holm next)
-|   `-- cli/          # turncoat run / validate / score / replicate (compare next)
+|   |-- stats/        # descriptive, bootstrap CIs, results file, Wilcoxon + Holm
+|   `-- cli/          # turncoat run / validate / score / replicate / compare / plot
 |-- backends/mininet/ # optional live testbed (v1.0)
 |-- examples/         # custom scenario, strategy and attack (v1.0)
-|-- docs/             # documentation set
+|-- docs/             # documentation set; figures/ holds the README figures
 |-- tests/
 `-- .github/          # CI workflow, PR and issue templates
 ```
