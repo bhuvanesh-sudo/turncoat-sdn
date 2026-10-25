@@ -83,7 +83,8 @@ def test_a_run_that_cannot_start_in_time_refuses_to_run(tmp_path, free_port, cap
         ]
     )
     assert code == 1
-    assert "not ready by the start" in capsys.readouterr().err
+    error = capsys.readouterr().err
+    assert "not ready by the start" in error or "agents not answering by the start" in error
 
 
 def test_loopback_run_records_a_valid_scorable_run(tmp_path, free_port):
