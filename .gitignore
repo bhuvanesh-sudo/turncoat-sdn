@@ -251,6 +251,8 @@ out/
 *.jsonl
 !tests/**/*.jsonl
 figures/
+# The README's figures, drawn by `turncoat plot` (see docs/cli.md).
+!docs/figures/
 *.pdf
 *.docx
 *.pptx

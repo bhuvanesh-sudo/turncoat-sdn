@@ -11,52 +11,50 @@ fits (Added, Changed, Fixed, Removed).
 
 ### Added
 
-- Repository scaffold: `src/` package layout with the `sim`, `attacks`,
-  `strategies`, `trust`, `events`, `scoring` and `stats` subpackages, a
-  `turncoat` console entry point, CI on a plain runner, PR and issue
-  templates, `README.md` and `CONTRIBUTING.md` (jv).
-- Seeded simulator in `turncoat_sdn.sim`, ported from the final-year
-  project's `evaluation/baseline.py` with routing, trust and the latency tell
-  as hooks; golden-file tests against the original numbers,
-  `docs/simulator.md` and `INSTALL.md` (bv).
-- Latency tell (`fleet_latency_baseline`, `evaluate_latency_tell`) moved out of
-  the project's os-ken-bound `controller/flow_monitor.py` into
-  `turncoat_sdn.trust.latency_tell`, so no core module imports os-ken; its
-  tests and `docs/architecture.md` (arj).
-- Trust calculator, EdgeScore selector and thresholds (isolation line, anomaly
-  gate, rate-limit bands) ported into `turncoat_sdn.trust`, with
-  `SimTrustModel` to plug the calculator into the simulator; the 0.44
-  liar-floor tests, golden `zt_sdn` and `no_trust` numbers from the final-year
-  project, `docs/concepts.md` and `docs/trust-model.md` (ash).
+- Replicate results file in `turncoat_sdn.stats.replicates`: one CSV row per
+  run with strategy, scenario, seed and every metric, simulator and detection
+  columns alike (results format 1.0, `RESULTS_FIELDS`), with a typed reader;
+  `turncoat replicate` runs every strategy on every scenario over N paired
+  seeds into it in one command, scoring recordings kept in memory by the new
+  `turncoat_sdn.events.EventList`; the results-file section of
+  `docs/event-format.md` and `docs/cli.md`.
+- Bootstrap confidence intervals in `turncoat_sdn.stats.bootstrap`: seeded
+  percentile bootstrap with configurable confidence and resamples, paired
+  across strategies; `turncoat replicate` prints every metric's mean with
+  `[low, high]` and writes them with `--summary`, and
+  `summarize_metrics(..., confidence=0.95)` adds them to descriptive
+  summaries; `docs/statistics.md` (confidence intervals) and
+  `docs/results.md`, a full 30-seed comparison.
+- `turncoat compare` prints the comparison table: one block per scenario and
+  strategy pair, and for every metric both means, the mean paired difference
+  with a paired bootstrap interval, the Wilcoxon p-value, the Holm-adjusted
+  p-value and the better strategy, with `--confidence` and `--resamples` for
+  the intervals. Strategies and scenarios default to those in the results
+  file. Tests, and the compare section of `docs/cli.md` (ash).
+- `turncoat plot` draws the comparison figure from a results file: one
+  metric as a panel per scenario and a row per strategy, each mean with the
+  bootstrap interval `replicate` prints, on one shared axis, with one
+  strategy highlighted (`--highlight`, default `zt_sdn`). It writes a
+  self-contained SVG with no plotting dependency that follows the viewer's
+  light or dark theme and is byte-for-byte reproducible. The README's new
+  "Compare strategies" section shows a real `compare` table and the figure,
+  drawn from the 30-seed results in `docs/results.md`, into `docs/figures/`;
+  tests, and the plot section of `docs/cli.md` (arj).
 
-- Load-balancing strategies in `turncoat_sdn.strategies`
-  (`RandomStrategy`, `RoundRobinStrategy`, `LeastConnectionsStrategy`,
-  `NoTrustStrategy` and `ZeroTrustSDNStrategy`), with server validation,
-  trust-threshold filtering, automated tests and `docs/strategies.md` (arv).
-- Attack scoring in `turncoat_sdn.scoring`: the attack classifier and attack
-  report moved from the final-year project, printing a confusion matrix,
-  per-class metrics and detection latency for a recording; tests including a
-  scored simulator run, and the attack scoring section of `docs/scoring.md`
-  (ash).
-- Event schema 1.0 for `events.jsonl` in `turncoat_sdn.events`: a
-  `schema_version` header line, the JSONL writer and reader ported from the
-  project's `event_bus.py` and `load_events`, a validator with line-numbered
-  messages (`python -m turncoat_sdn.events.validate`), and
-  `docs/event-format.md` (arj).
-- The simulator records runs to `events.jsonl`: a `recorder` hook on
-  `simulate` and a `recorders` factory on `run_paired` that take arj's
-  `EventWriter`, writing the topology with ground truth, every route and
-  outcome, anomaly signals, quarantines and a per-poll `node_status`; every
-  scenario's recording validates and recording leaves the metrics unchanged.
-  The attack scoring tests now score this recording. Recording section in
-  `docs/simulator.md` (bv).
-- `turncoat run`, `validate` and `score` commands: `run` records one seeded
-  run of any of the five strategies, `validate` checks recordings against the
-  schema, and `score` reports service cost, attacker detection and isolation
-  latency, and traffic still routed to flagged attackers, as a summary or
-  stable `--json`. The CLI's routers reproduce both final-year golden files,
-  rebuilt service totals equal the simulator's counts, and a golden-file test
-  pins the scores of eight fixed-seed runs; `docs/cli.md` (jv).
+### Fixed
+
+- The strategy benchmark runner's default scenarios were a fixed list of the
+  four v0.2 scenarios, missing `grayhole`, `onoff` and `spoof`; it now uses
+  `turncoat_sdn.sim.SCENARIOS`.
+- `turncoat compare results.csv` stopped with "no complete pairs" whenever a
+  scenario could not measure a metric, such as time to isolate in `clean`, so
+  the default command failed on any full results file. Such cells now leave
+  the Holm family and are listed under the table (ash).
+
+## [0.3.0] - 2026-10-25
+
+### Added
+
 - Attack profile interface in `turncoat_sdn.attacks`: `ServerAttack` keeps a
   server honest until its `start_s` onset, and the simulator's Sybil and
   blackhole moved out of its event loop onto it as `Sybil` and `Blackhole`
@@ -93,6 +91,11 @@ fits (Added, Changed, Fixed, Removed).
   delays them, and `--identity-binding` picks the admission rule; `run`
   reports admission refusals, and `score` reports each IoT client's refused
   requests and an admission total; `docs/cli.md` (jv).
+- Descriptive strategy benchmark: per-strategy summaries in
+  `turncoat_sdn.scoring.benchmark`, a reproducible comparison runner in
+  `scoring.strategy_benchmark`, comparison reports in
+  `scoring.comparison_report`, and grouped descriptive statistics in
+  `turncoat_sdn.stats.descriptive`; `docs/benchmark-statistics.md` (arv).
 
 ### Fixed
 
@@ -100,3 +103,63 @@ fits (Added, Changed, Fixed, Removed).
   the run; "Routed to attackers" now counts from each attacker's onset, and
   equals the simulator's `malicious_share`. Runs with an onset of 0 are
   unchanged (jv).
+
+## [0.2.0] - 2026-10-23
+
+### Added
+
+- Attack scoring in `turncoat_sdn.scoring`: the attack classifier and attack
+  report moved from the final-year project, printing a confusion matrix,
+  per-class metrics and detection latency for a recording; tests including a
+  scored simulator run, and the attack scoring section of `docs/scoring.md`
+  (ash).
+- Event schema 1.0 for `events.jsonl` in `turncoat_sdn.events`: a
+  `schema_version` header line, the JSONL writer and reader ported from the
+  project's `event_bus.py` and `load_events`, a validator with line-numbered
+  messages (`python -m turncoat_sdn.events.validate`), and
+  `docs/event-format.md` (arj).
+- The simulator records runs to `events.jsonl`: a `recorder` hook on
+  `simulate` and a `recorders` factory on `run_paired` that take arj's
+  `EventWriter`, writing the topology with ground truth, every route and
+  outcome, anomaly signals, quarantines and a per-poll `node_status`; every
+  scenario's recording validates and recording leaves the metrics unchanged.
+  The attack scoring tests now score this recording. Recording section in
+  `docs/simulator.md` (bv).
+- `turncoat run`, `validate` and `score` commands: `run` records one seeded
+  run of any of the five strategies, `validate` checks recordings against the
+  schema, and `score` reports service cost, attacker detection and isolation
+  latency, and traffic still routed to flagged attackers, as a summary or
+  stable `--json`. The CLI's routers reproduce both final-year golden files,
+  rebuilt service totals equal the simulator's counts, and a golden-file test
+  pins the scores of eight fixed-seed runs; `docs/cli.md` (jv).
+
+## [0.1.0] - 2026-10-23
+
+### Added
+
+- Repository scaffold: `src/` package layout with the `sim`, `attacks`,
+  `strategies`, `trust`, `events`, `scoring` and `stats` subpackages, a
+  `turncoat` console entry point, CI on a plain runner, PR and issue
+  templates, `README.md` and `CONTRIBUTING.md` (jv).
+- Seeded simulator in `turncoat_sdn.sim`, ported from the final-year
+  project's `evaluation/baseline.py` with routing, trust and the latency tell
+  as hooks; golden-file tests against the original numbers,
+  `docs/simulator.md` and `INSTALL.md` (bv).
+- Latency tell (`fleet_latency_baseline`, `evaluate_latency_tell`) moved out of
+  the project's os-ken-bound `controller/flow_monitor.py` into
+  `turncoat_sdn.trust.latency_tell`, so no core module imports os-ken; its
+  tests and `docs/architecture.md` (arj).
+- Trust calculator, EdgeScore selector and thresholds (isolation line, anomaly
+  gate, rate-limit bands) ported into `turncoat_sdn.trust`, with
+  `SimTrustModel` to plug the calculator into the simulator; the 0.44
+  liar-floor tests, golden `zt_sdn` and `no_trust` numbers from the final-year
+  project, `docs/concepts.md` and `docs/trust-model.md` (ash).
+- Load-balancing strategies in `turncoat_sdn.strategies`
+  (`RandomStrategy`, `RoundRobinStrategy`, `LeastConnectionsStrategy`,
+  `NoTrustStrategy` and `ZeroTrustSDNStrategy`), with server validation,
+  trust-threshold filtering, automated tests and `docs/strategies.md` (arv).
+
+[Unreleased]: https://github.com/bhuvanesh-sudo/turncoat-sdn/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/bhuvanesh-sudo/turncoat-sdn/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/bhuvanesh-sudo/turncoat-sdn/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/bhuvanesh-sudo/turncoat-sdn/releases/tag/v0.1.0

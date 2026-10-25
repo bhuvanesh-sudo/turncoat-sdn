@@ -17,6 +17,7 @@ from turncoat_sdn.scoring.benchmark import (
     write_csv,
     write_json,
 )
+from turncoat_sdn.sim import SCENARIOS
 
 STRATEGIES = (
     "random",
@@ -25,7 +26,6 @@ STRATEGIES = (
     "no_trust",
     "zt_sdn",
 )
-SCENARIOS = ("clean", "sybil", "drop", "both")
 
 
 def read_recording(path: str | Path) -> list[dict[str, Any]]:

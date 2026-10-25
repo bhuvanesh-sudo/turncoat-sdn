@@ -1,7 +1,9 @@
 """Core server models and load-balancing strategies."""
 
+import math
 import random
 from dataclasses import dataclass
+from numbers import Real
 from typing import Protocol
 
 
@@ -15,12 +17,21 @@ class Server:
     trust_score: float = 1.0
 
     def __post_init__(self) -> None:
-        if not self.server_id:
-            raise ValueError("server_id must not be empty")
-        if self.active_connections < 0:
-            raise ValueError("Connections cannot be negative")
-        if not 0 <= self.trust_score <= 1:
-            raise ValueError("Trust must be between 0 and 1")
+        if not isinstance(self.server_id, str) or not self.server_id.strip():
+            raise ValueError("server_id must be a non-empty string")
+        if (
+            isinstance(self.active_connections, bool)
+            or not isinstance(self.active_connections, int)
+            or self.active_connections < 0
+        ):
+            raise ValueError("active_connections must be a non-negative integer")
+        if (
+            isinstance(self.trust_score, bool)
+            or not isinstance(self.trust_score, Real)
+            or not math.isfinite(self.trust_score)
+            or not 0 <= self.trust_score <= 1
+        ):
+            raise ValueError("trust_score must be finite and between 0 and 1")
 
 
 class Strategy(Protocol):
@@ -82,9 +93,14 @@ class ZeroTrustSDNStrategy:
     """Filter servers by health and trust, then prioritize trust."""
 
     def __init__(self, min_trust: float = 0.5) -> None:
-        if not 0 <= min_trust <= 1:
-            raise ValueError("Trust threshold must be between 0 and 1")
-        self.min_trust = min_trust
+        if (
+            isinstance(min_trust, bool)
+            or not isinstance(min_trust, Real)
+            or not math.isfinite(min_trust)
+            or not 0 <= min_trust <= 1
+        ):
+            raise ValueError("Trust threshold must be finite and between 0 and 1")
+        self.min_trust = float(min_trust)
 
     def select(self, servers: list[Server]) -> Server:
         candidates = [

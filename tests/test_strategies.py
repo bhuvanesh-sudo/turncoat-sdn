@@ -88,6 +88,32 @@ def test_invalid_server_data(kwargs):
         Server(**({"server_id": "edge-a"} | kwargs))
 
 
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"server_id": " "},
+        {"active_connections": True},
+        {"active_connections": 1.5},
+        {"trust_score": True},
+        {"trust_score": float("nan")},
+        {"trust_score": float("inf")},
+        {"trust_score": float("-inf")},
+    ],
+)
+def test_server_rejects_invalid_types_and_non_finite_values(kwargs):
+    with pytest.raises(ValueError):
+        Server(**({"server_id": "edge-a"} | kwargs))
+
+
+@pytest.mark.parametrize(
+    "threshold",
+    [True, float("nan"), float("inf"), float("-inf")],
+)
+def test_zero_trust_rejects_invalid_threshold_values(threshold):
+    with pytest.raises(ValueError, match="Trust threshold"):
+        ZeroTrustSDNStrategy(min_trust=threshold)
+
+
 def test_invalid_trust_threshold():
     with pytest.raises(ValueError, match="between 0 and 1"):
         ZeroTrustSDNStrategy(min_trust=1.5)

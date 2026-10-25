@@ -1,7 +1,9 @@
 """Descriptive statistics for repeated strategy benchmark runs.
 
-This module provides descriptive summaries for v0.3. Inferential tests,
-bootstrap confidence intervals, and replicate aggregation remain out of scope.
+This module provides descriptive summaries for v0.3. From v0.4,
+``summarize_metrics(..., confidence=0.95)`` adds a bootstrap confidence
+interval to each summary (see :mod:`turncoat_sdn.stats.bootstrap`). Inferential
+tests remain out of scope.
 """
 
 from __future__ import annotations
@@ -10,6 +12,8 @@ import math
 from collections.abc import Iterable, Mapping
 from dataclasses import asdict, dataclass
 from typing import Any
+
+from turncoat_sdn.stats.bootstrap import DEFAULT_RESAMPLES, bootstrap_ci
 
 
 @dataclass(frozen=True)
@@ -68,12 +72,19 @@ def summarize_metrics(
         "false_positive_rate",
         "mean_detection_latency_s",
     ),
+    confidence: float | None = None,
+    resamples: int = DEFAULT_RESAMPLES,
+    seed: int = 0,
 ) -> list[dict[str, Any]]:
     """Summarize numeric metrics by strategy/scenario or other grouping keys.
 
     Each input record represents one run. Missing or null metrics are skipped.
     Records missing a grouping key are rejected. Non-numeric metric values are
     rejected rather than silently ignored.
+
+    With ``confidence`` (for example 0.95), each metric's summary also carries
+    ``ci_low`` and ``ci_high``, a seeded percentile-bootstrap interval for its
+    mean over ``resamples`` resamples.
     """
     groups: dict[tuple[Any, ...], list[Mapping[str, Any]]] = {}
 
@@ -93,6 +104,12 @@ def summarize_metrics(
         for metric in metrics:
             values = [record[metric] for record in group if record.get(metric) is not None]
             row[metric] = asdict(summarize(values))
+            if confidence is not None:
+                interval = bootstrap_ci(
+                    values, confidence=confidence, resamples=resamples, seed=seed
+                )
+                row[metric]["ci_low"] = interval.low
+                row[metric]["ci_high"] = interval.high
 
         output.append(row)
 

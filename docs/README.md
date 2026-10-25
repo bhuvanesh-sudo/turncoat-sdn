@@ -24,9 +24,10 @@ sections for their own work, and the owner reviews those additions.
 | `../CONTRIBUTING.md` | jv | v0.1 | How do I propose a change? |
 | `cli.md` | jv | v0.2 to v0.4 | What commands and options exist? |
 
-Pages appear here as their release lands. As of v0.3 these exist:
+Pages appear here as their release lands. As of v0.4 these exist:
 `simulator.md`, `event-format.md`, `scoring.md`, `cli.md`,
 `architecture.md`, `concepts.md`, `trust-model.md`, `strategies.md`,
-`attacks.md`, `benchmark-statistics.md`, `../INSTALL.md`, `../README.md` and
+`attacks.md`, `benchmark-statistics.md`, `statistics.md` (confidence
+intervals so far), `results.md`, `../INSTALL.md`, `../README.md` and
 `../CONTRIBUTING.md`. Each attack's entry in `attacks.md` is written by its
 author.
