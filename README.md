@@ -402,8 +402,8 @@ repository" button turns it into APA or BibTeX:
 
 ```bibtex
 @software{turncoat_sdn_2026,
-  author  = {K R Jeevan Raj and Aravind Kumar M and Arjun Krishnakumar and
-             Ashwin Kumar RM and Bhuvanesh S},
+  author  = {Bhuvanesh S and K R Jeevan Raj and Aravind Kumar M and Arjun Krishnakumar and
+             Ashwin Kumar RM},
   title   = {turncoat-sdn: a reproducible benchmark for trust-aware SDN load
              balancers under delayed-onset attacks},
   version = {1.0.0},
