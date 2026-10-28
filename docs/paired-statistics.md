@@ -1,16 +1,16 @@
-**# Paired Benchmark Statistics**
+# Paired Benchmark Statistics
 
 **Owner:** arv · **Written in:** v0.4
 
-**## What it is**
+## What it is
 
 The paired benchmark statistics module compares two load-balancing strategies using repeated runs performed with matching scenario and seed values. It provides a paired Wilcoxon signed-rank test, mean and median paired differences, pair counts, and Holm-Bonferroni correction for multiple p-values.
 
-**## Why it exists**
+## Why it exists
 
 Different random seeds can produce different workload outcomes. Comparing strategies using matching seeds helps control variation caused by the simulation workload. The Wilcoxon signed-rank test evaluates whether paired differences provide evidence against the specified null hypothesis. Holm correction controls the family-wise error rate when conducting multiple hypothesis tests.
 
-**## How to use it**
+## How to use it
 
 ```python
 from turncoat_sdn.stats.paired import paired_wilcoxon, holm_adjust
@@ -46,9 +46,9 @@ ruff check .
 ruff format --check .
 ```
 
-**## How it works inside**
+## How it works inside
 
-**### Paired Wilcoxon signed-rank test**
+### Paired Wilcoxon signed-rank test
 
 `paired_wilcoxon(rows, strategy_a, strategy_b, scenario, metric)` matches records by seed within the requested scenario. It calculates differences as `strategy_a - strategy_b` and applies SciPy's Wilcoxon signed-rank test.
 
@@ -56,13 +56,13 @@ The result contains the strategy names, scenario, metric, number of complete pai
 
 The `alternative` argument accepts `two-sided`, `less`, or `greater`. The default is `two-sided`.
 
-**### Holm-Bonferroni correction**
+### Holm-Bonferroni correction
 
 `holm_adjust(p_values)` returns adjusted p-values in the same order as the supplied values. It sorts p-values, applies the step-down Holm procedure, enforces monotonic adjusted values in sorted order, and caps results at 1.
 
 For multiple comparisons, collect the raw p-values from the planned tests and pass them together to `holm_adjust`. Do not interpret each raw p-value as if it were already corrected.
 
-**### Input validation**
+### Input validation
 
 Strategy names, scenario, and metric must be non-empty strings. Strategies must differ. Each selected strategy must have exactly one row for each matching seed; duplicate rows and mismatched seed sets are rejected.
 
@@ -70,13 +70,13 @@ Seeds must be integers. Metric values must be finite numeric values or missing (
 
 If all paired differences are zero, the implementation returns a statistic of zero and a p-value of one. Invalid p-values passed to `holm_adjust` are rejected.
 
-**## Integration status**
+## Integration status
 
 This module is implemented in `src/turncoat_sdn/stats/paired.py`. Its automated tests are in `tests/stats/test_paired.py`.
 
 It uses the existing SciPy dependency. It does not execute simulations, change strategy behavior, or replace scoring functions. The CLI `turncoat compare` command and automated comparison-report integration are separate follow-up work.
 
-**## Known limits**
+## Known limits
 
 - Comparisons require matching scenario and seed values; unmatched runs are rejected rather than silently discarded.
 - Missing metric values exclude the entire affected pair.
@@ -86,7 +86,7 @@ It uses the existing SciPy dependency. It does not execute simulations, change s
 - The reported p-value is unadjusted until it is passed through `holm_adjust` with the other tests in the same correction family.
 - CSV comparison reports are supported through `write_comparison_report`; the `turncoat compare` CLI command remains future work.
 
-**## Multi-strategy comparison reports**
+## Multi-strategy comparison reports
 
 Use `compare_strategies(...)` to compare every unique strategy pair across
 selected scenarios and metrics. It returns a `ComparisonReport` containing
@@ -131,19 +131,19 @@ The report does not automatically decide which comparisons belong in a
 scientifically justified family; that choice must match the analysis plan.
 The `turncoat compare` CLI command remains separate follow-up work.
 
-**## CSV Comparison Report Export**
+## CSV Comparison Report Export
 
 **Owner:** arv · **Written in:** v0.4
 
-**## What it is**
+## What it is
 
 The comparison report exporter writes a `ComparisonReport` to a separate CSV file. It preserves raw and Holm-adjusted p-values, significance decisions, sample counts, and measured differences.
 
-**## Why it exists**
+## Why it exists
 
 A stable CSV makes statistical results easier to inspect in spreadsheets, compare across experiments, and include in project documentation without manually copying results.
 
-**## How to use it**
+## How to use it
 
 ```python
 from turncoat_sdn.stats import (
@@ -164,17 +164,17 @@ count = write_comparison_report(report, "reports/comparison.csv")
 print(f"Exported {count} comparisons")
 ```
 
-**## How it works inside**
+## How it works inside
 
 `comparison_rows(report)` converts the report to ordered dictionaries. `COMPARISON_FIELDS` defines the stable column order. `write_comparison_report(report, path)` creates parent directories, writes a UTF-8 CSV with a header, and returns the number of comparison rows written.
 
 The columns include strategy names, scenario, metric, complete and missing pair counts, test statistic, raw and adjusted p-values, mean and median differences, alternative hypothesis, alpha, and significance.
 
-**## Integration status**
+## Integration status
 
 Implemented in `src/turncoat_sdn/stats/report.py`, tested in `tests/stats/test_report.py`, and exposed through `turncoat_sdn.stats`. It does not run simulations or alter statistical results.
 
-**## Known limits**
+## Known limits
 
 - The exporter writes the results already present in the report; it does not independently validate the experimental design.
 - Holm correction is applied by `compare_strategies(...)` before export.
