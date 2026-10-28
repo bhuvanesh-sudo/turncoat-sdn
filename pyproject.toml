@@ -90,7 +90,9 @@ filterwarnings = ["error"]
 # ---------------------------------------------------------------- coverage
 
 [tool.coverage.run]
-source = ["turncoat_sdn"]
+# The core package and the optional live backend, by directory, so both are
+# measured however the tests import them.
+source = ["src/turncoat_sdn", "backends/mininet/turncoat_mininet"]
 branch = true
 
 [tool.coverage.report]
