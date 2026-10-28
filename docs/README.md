@@ -20,7 +20,7 @@ sections for their own work, and the owner reviews those additions.
 | `strategies.md` | arv | v0.1 | What does each baseline do? |
 | `scoring.md` | arv | v0.2 | What does each score mean, and how is it computed? |
 | `benchmark-statistics.md` | arv | v0.3 | What do repeated runs look like, summarised? |
-| `statistics.md` | arv | v0.4 | Why these tests, and how do I read the output? |
+| `statistics.md` | arv | v0.4, robustness rankings in v1.0 | Why these tests, how do I read the output, and which strategy holds up across scenarios? |
 | `paired-statistics.md` | arv | v0.4 | How do I compare two strategies on matched seeds in code? |
 | `../README.md` | jv | v0.1, finished in v1.0 | What is this, and how do I see it work in five minutes? |
 | `../CONTRIBUTING.md` | jv | v0.1 | How do I propose a change? |

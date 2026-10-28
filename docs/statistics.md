@@ -12,6 +12,7 @@ parts:
 | Descriptive summaries | What were the mean, spread and range over the runs? | `stats/descriptive.py` | v0.3, see [benchmark-statistics.md](benchmark-statistics.md) |
 | [Confidence intervals](#confidence-intervals) | How far could each mean move on other seeds? | `stats/bootstrap.py` | v0.4 |
 | [Paired tests](paired-statistics.md) | How do two strategies compare on matched seeds? | `stats/paired.py` | v0.4 implemented |
+| [Robustness rankings](#robustness-rankings) | Which strategy holds up best across every scenario? | `stats/robustness.py` | v1.0 |
 
 They all read the same input, the results file `turncoat replicate` writes:
 one row per run, every metric a column (see
@@ -116,3 +117,79 @@ Paired Wilcoxon signed-rank testing and Holm-Bonferroni p-value correction
 are implemented in `stats/paired.py` and exported from `turncoat_sdn.stats`.
 See [Paired Benchmark Statistics](paired-statistics.md) for the API, examples,
 validation rules, test commands, integration status, and known limitations.
+
+## Robustness rankings
+
+### What it is
+
+`rank_strategies` answers a different question from the paired tests: not
+"is A better than B in this scenario?" but "which strategy holds up best
+across all of them?". It ranks the strategies on one metric within each
+scenario, then ranks them overall by their average rank. It lives in
+`stats/robustness.py` and is exported from `turncoat_sdn.stats`.
+
+### How to use it
+
+It reads the same results file as everything else on this page:
+
+```python
+from turncoat_sdn.stats import rank_strategies, read_results
+
+rows = read_results("results.csv")
+ranking = rank_strategies(rows, metric="slo_violation_rate")
+
+for row in ranking["overall_rankings"]:
+    print(
+        f"{row['strategy']:<12} average rank {row['average_rank']:.2f}"
+        f"  (spread {row['rank_stddev']:.2f} over {row['scenarios_ranked']} scenarios)"
+    )
+
+both = next(s for s in ranking["scenario_rankings"] if s["scenario"] == "both")
+print(both["ranks"])
+```
+
+On a results file from `turncoat replicate --seeds 10 -o results.csv` (all
+five strategies, all seven scenarios, 350 runs):
+
+```
+zt_sdn       average rank 1.57  (spread 0.90 over 7 scenarios)
+round_robin  average rank 2.29  (spread 0.88 over 7 scenarios)
+no_trust     average rank 2.71  (spread 0.88 over 7 scenarios)
+random       average rank 3.43  (spread 0.90 over 7 scenarios)
+least_conn   average rank 5.00  (spread 0.00 over 7 scenarios)
+{'least_conn': 5.0, 'no_trust': 2.0, 'random': 4.0, 'round_robin': 3.0, 'zt_sdn': 1.0}
+```
+
+`zt_sdn` has the best average rank on SLO violations, and its spread says
+it is not first everywhere: `round_robin` beats it in `clean` and `spoof`,
+where no server attacks (see [results.md](results.md)). `least_conn` is last
+in every one of the seven scenarios, so its spread is zero.
+
+### How it works inside
+
+1. Each strategy's metric is averaged over its seeds within each scenario.
+   Blank cells (a metric the run could not measure) are skipped.
+2. Strategies are ranked within each scenario in the metric's own direction,
+   taken from `RESULT_METRICS`: lower is better for SLO violations, higher
+   for attackers named. Ties share the average of the ranks they span, so
+   two strategies tied for first both get 1.5.
+3. Each strategy's overall score is the mean of its per-scenario ranks, and
+   `rank_stddev` is their population standard deviation. The overall list is
+   sorted by average rank, then by name.
+
+The result is a plain dict: `metric`, `higher_is_better`, `scenarios`,
+`scenario_rankings` (each scenario's `metric_means` and `ranks`) and
+`overall_rankings` (each strategy's `average_rank`, `rank_stddev` and
+`scenarios_ranked`). Pass `scenarios=[...]` to rank over a subset.
+
+### Known limits
+
+- **Ranks hide the size of a gap.** A strategy that is second by 0.01 points
+  and one that is second by 10 points rank the same. Read the ranking beside
+  the means, or the paired tests, before calling one strategy better.
+- **No uncertainty.** The ranking uses seed means only, with no interval or
+  test. Two strategies whose intervals overlap can still rank differently.
+- **Every strategy must be measured in every scenario.** A scenario where a
+  strategy has no valid value for the metric raises `ValueError`; time to
+  isolate in `clean` is one, so pass `scenarios=` to leave such scenarios out.
+- **Python only.** There is no `turncoat` command for it yet.
