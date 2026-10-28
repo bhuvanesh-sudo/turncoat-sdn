@@ -9,6 +9,23 @@ fits (Added, Changed, Fixed, Removed).
 
 ## [Unreleased]
 
+### Added
+
+- Robustness rankings section in `docs/statistics.md`: how
+  `rank_strategies` ranks strategies within each scenario and overall, what
+  it returns, and a real ranking of the five strategies over all seven
+  scenarios from a 10-seed results file.
+
+### Changed
+
+- Coverage now measures the optional live backend
+  (`backends/mininet/turncoat_mininet`) as well as the core package.
+
+### Fixed
+
+- The headings of `docs/paired-statistics.md` were wrapped in bold
+  (`**## What it is**`) and showed as literal text instead of headings.
+
 ## [1.0.0] - 2026-10-25
 
 ### Added
